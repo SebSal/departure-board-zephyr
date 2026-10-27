@@ -1,0 +1,8 @@
+build/
+.vscode/
+.claude/
+.checkpatch.conf
+.clang-format
+.editorconfig
+.checkpatch.typedefs
+.clang-format-ignore

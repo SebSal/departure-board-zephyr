@@ -1,0 +1,59 @@
+#include <zephyr/dt-bindings/pinctrl/esp-pinctrl-common.h>
+#include <zephyr/dt-bindings/pinctrl/esp32c6-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/esp32c6-gpio-sigmap.h>
+
+/* The Beetle's stock UART0 sat on GPIO16/17. Both are carrier-control lines now
+ * (disp-en and bat-en), so uart0 keeps a pin-free pinctrl state; the console runs over
+ * usb_serial instead. */
+
+&pinctrl {
+	/* The empty pinmux is needed. */
+	uart0_default: uart0_default {
+		group1 {
+			pinmux = <>;
+			output-high;
+		};
+
+		group2 {
+			pinmux = <>;
+			bias-pull-up;
+		};
+	};
+
+	spim2_default: spim2_default {
+		group1 {
+			pinmux = <SPIM2_MISO_GPIO21>,
+				 <SPIM2_SCLK_GPIO23>,
+				 <SPIM2_CSEL_GPIO7>;
+		};
+
+		group2 {
+			pinmux = <SPIM2_MOSI_GPIO22>;
+			output-low;
+		};
+	};
+
+	i2c0_default: i2c0_default {
+		group1 {
+			pinmux = <I2C0_SDA_GPIO19>,
+				 <I2C0_SCL_GPIO20>;
+			bias-pull-up;
+			drive-open-drain;
+			output-high;
+		};
+	};
+
+	i2s_default: i2s_default {
+		group1 {
+			pinmux = <I2S_O_SD_GPIO8>;
+			output-enable;
+		};
+	};
+
+	ledc0_default: ledc0_default {
+		group1 {
+			pinmux = <LEDC_CH0_GPIO19>;
+			output-enable;
+		};
+	};
+};

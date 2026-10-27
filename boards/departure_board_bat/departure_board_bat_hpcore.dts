@@ -1,0 +1,124 @@
+#include "../common/beetle_esp32c6_hpcore.dtsi"
+#include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	model = "Departure Board Battery";
+	compatible = "departure-board-bat";
+
+	chosen {
+		zephyr,display = &st7789v;
+	};
+
+	aliases {
+		ledbacklight = &leddisp;
+		sw0 = &user_btn;
+		adc = &adc0;
+	};
+
+	mipi_dbi {
+		compatible = "zephyr,mipi-dbi-spi";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-dev = <&spi2>;
+		dc-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
+		write-only;
+
+		st7789v: st7789v@0 {
+			compatible = "sitronix,st7789v";
+			mipi-max-frequency = <20000000>;
+			reg = <0>;
+			width = <320>;
+			height = <240>;
+			x-offset = <0>;
+			y-offset = <0>;
+			vcom = <0x19>;
+			gctrl = <0x35>;
+			vrhs = <0x12>;
+			vdvs = <0x20>;
+			/* MADCTL. D6/D5/D4 set the landscape orientation; D3 is the RGB/BGR
+			 * order bit and stays clear, so the panel reads pixels as plain RGB
+			 * and colours can be written the way they are published.
+			 */
+			mdac = <0x70>;
+			gamma = <0x01>;
+			pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+			lcm = <0x2c>;
+			porch-param = [0c 0c 00 33 33];
+			cmd2en-param = [5a 69 02 01];
+			pwctrl1-param = [a4 a1];
+			pvgam-param = [D0 05 0A 09 08 05 2E 44 45 0F 17 16 2B 33];
+			nvgam-param = [D0 05 0A 09 08 05 2E 43 45 0F 16 16 2B 33];
+			ram-param = [00 f0];
+			rgb-param = [cd 08 14];
+			mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+			status = "okay";
+		};
+	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+
+		leddisp: pwm_led_gpio0_19 {
+			label = "PWM LED0";
+			pwms = <&ledc0 0 PWM_HZ(1000) PWM_POLARITY_NORMAL>;
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+
+		user_btn: button_0 {
+			label = "SW_0";
+			gpios = <&gpio0 4 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+
+	longpress {
+		compatible = "zephyr,input-longpress";
+		input-codes = <INPUT_KEY_0>;
+		short-codes = <INPUT_KEY_S>;
+		long-codes = <INPUT_KEY_L>;
+		long-delay-ms = <4000>;
+	};
+
+	zephyr,user {
+		/* ADC1 channel 5 is GPIO5, where the battery divider lands. */
+		io-channels = <&adc0 5>;
+		/* Battery divider: high side from the battery to the ADC pin, low side to GND. */
+		vbatt-high-side-ohms = <220000>;
+		vbatt-low-side-ohms = <220000>;
+		disp-en-gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+		bat-en-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&adc0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@5 {
+		reg = <5>;
+		zephyr,gain = "ADC_GAIN_1_4";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+	};
+};
+
+&ledc0 {
+	pinctrl-0 = <&ledc0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel0@0 {
+		reg = <0x0>;
+		timer = <0>;
+	};
+};

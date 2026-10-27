@@ -1,0 +1,98 @@
+menu "Departure Board"
+
+config APP_DISPLAY_BRIGHTNESS
+	int "Display brightness in percent"
+	default 50
+	help
+	  Backlight duty cycle, 0-100. Applied at boot before the settings are read.
+
+config APP_DISPLAY_TIME_SEC
+	int "Seconds the departure board stays on screen"
+	default 30
+	help
+	  How long a successful update is shown before the device goes back to sleep.
+
+config APP_ERROR_DISPLAY_TIME_SEC
+	int "Seconds an error or warning stays on screen"
+	default 10
+	help
+	  How long a fetch error or the low battery warning is shown before the device
+	  goes back to sleep.
+
+config APP_CONFIG_TIMEOUT_DEFAULT_SEC
+	int "Default config mode timeout in seconds"
+	default 300
+	help
+	  Sets advanced/config_timeout when the device has never been configured.
+
+config APP_BUTTON_HOLD_SEC
+	int "Seconds the button must be held to enter config mode"
+	default 3
+	help
+	  How long the button must be held at boot to enter configuration mode.
+
+config APP_BATTERY_LOW_CUTOFF_MV
+	int "Battery cutoff in millivolts below which the wifi cycle is skipped"
+	default 3700
+	help
+	  Below this measured voltage the device shows a warning and goes straight back to sleep
+	  rather than bringing up the radio.
+
+config APP_WATCHDOG_TIMEOUT_MARGIN_SEC
+	int "Watchdog margin on top of the longest awake time in seconds"
+	default 10
+	help
+	  The watchdog is armed once at startup and disabled again before entering
+	  deep sleep. On expiry the device reboots.
+
+config APP_WATCHDOG_TIMEOUT_MIN_SEC
+	int "Minimum watchdog timeout in seconds"
+	default 90
+	help
+	  Lower bound for the watchdog timeout.
+
+# Per-module log levels
+
+module = APP
+module-str = app
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_HW
+module-str = app_hw
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_CONFIG
+module-str = app_config
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_SHELL
+module-str = app_shell
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_HTTP_CLIENT
+module-str = app_http_client
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_WIFI
+module-str = app_wifi
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_NTP
+module-str = app_ntp
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_VRS
+module-str = app_vrs
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_MOTIS
+module-str = app_motis
+source "subsys/logging/Kconfig.template.log_config"
+
+module = APP_TRANSPORT
+module-str = app_transport
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu
+
+source "Kconfig.zephyr"

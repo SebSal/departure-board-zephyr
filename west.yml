@@ -1,0 +1,19 @@
+manifest:
+  version: 1.2
+
+  self:
+    path: departure-board-zephyr
+
+  projects:
+    - name: zephyr
+      revision: 3deeb463ffd25b7f92a0814b02d75be0e4553f20
+      url: https://github.com/zephyrproject-rtos/zephyr
+      submodules: true
+      import:
+        path-prefix: zephyrproject
+        name-allowlist:
+          - zephyr
+          - hal_espressif
+          - mbedtls
+          - tf-psa-crypto
+          - lvgl

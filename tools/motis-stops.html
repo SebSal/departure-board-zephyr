@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MOTIS stop picker</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #16191d; --muted: #656d78;
+    --line: #dfe3e8; --accent: #0d6a7d; --accent-ink: #ffffff;
+    --ok: #0a6b3d; --warn: #8a5000; --bad: #b3000f; --code: #f0f2f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --panel: #1c2024; --ink: #e8eaed; --muted: #9aa3ad;
+      --line: #2e343a; --accent: #4fd1e0; --accent-ink: #04222a;
+      --ok: #56d99a; --warn: #e9b464; --bad: #ff5a63; --code: #24292f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  section {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  section[hidden] { display: none; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600;
+  }
+  input[type=text], input[type=number] {
+    background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; font: inherit;
+  }
+  input[type=text] { min-width: 260px; }
+  button {
+    background: var(--accent); color: var(--accent-ink); border: 0; cursor: pointer;
+    border-radius: 6px; padding: 8px 14px; font: inherit; font-weight: 600;
+  }
+  button.ghost {
+    background: transparent; color: var(--accent); border: 1px solid var(--line);
+    font-weight: 500; padding: 4px 9px; font-size: 13px;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .stations { list-style: none; margin: 12px 0 0; padding: 0; }
+  .stations li { border-top: 1px solid var(--line); }
+  .stations button {
+    display: flex; gap: 10px; align-items: baseline; padding: 9px 2px; width: 100%;
+    background: none; border: 0; color: inherit; font: inherit; text-align: left;
+    cursor: pointer; flex-wrap: wrap;
+  }
+  .stations button:hover { color: var(--accent); }
+  .stations .nm { font-weight: 600; }
+  .id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .modes { color: var(--muted); font-size: 12px; }
+
+  .plat { border-top: 1px solid var(--line); padding: 14px 0; }
+  .plat:first-child { border-top: 0; padding-top: 0; }
+  .plat h3 {
+    font-size: 13px; margin: 0 0 3px; display: flex; gap: 9px;
+    align-items: center; flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 8px;
+    text-transform: uppercase; letter-spacing: .04em;
+    background: var(--code); color: var(--muted);
+  }
+  .badge.one { background: rgba(10, 107, 61, .14); color: var(--ok); }
+  .badge.many { background: rgba(179, 0, 15, .14); color: var(--bad); }
+  .plat .lines { color: var(--muted); font-size: 13px; margin: 2px 0 8px; }
+  .plat .lines b { color: var(--ink); font-weight: 600; }
+  .warnbox {
+    font-size: 13px; background: rgba(179, 0, 15, .09);
+    border-left: 3px solid var(--bad); border-radius: 4px; padding: 8px 11px;
+    margin: 0 0 9px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 4px 8px 4px 0; border-top: 1px solid var(--line); text-align: left; }
+  th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); font-weight: 600; border-top: 0;
+  }
+  td { font-size: 13px; }
+  td.t { font-family: var(--mono); font-variant-numeric: tabular-nums; width: 52px; }
+  td.ln { font-weight: 600; white-space: nowrap; width: 62px; }
+  td.dir { color: var(--muted); width: 40px; font-size: 12px; }
+  tr.flip td { color: var(--bad); }
+  .urlbox {
+    font-family: var(--mono); font-size: 12.5px; background: var(--code);
+    border: 1px solid var(--line); border-radius: 6px; padding: 11px 12px;
+    word-break: break-all; user-select: all;
+  }
+  .urlbox + .urlbox { margin-top: 8px; }
+  ul.notes { margin: 12px 0 0; padding-left: 18px; font-size: 13.5px; }
+  ul.notes li { margin-bottom: 5px; }
+  li.good { color: var(--ok); } li.warn { color: var(--warn); } li.bad { color: var(--bad); }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .err { color: var(--bad); }
+  .scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MOTIS stop picker</h1>
+  <p class="sub">
+    Find the platform-level <code>stopId</code> for a departure monitor, and check
+    whether that platform really serves one direction. Talks to
+    <code>api.transitous.org</code> from the browser; no server, no key.
+  </p>
+
+  <section>
+    <h2>1 &middot; Station</h2>
+    <form class="row" id="searchForm">
+      <input type="text" id="q" placeholder="K&ouml;ln Ehrenfeld, Alexanderplatz, ..." autofocus>
+      <button type="submit">Search</button>
+      <span id="searchMsg" class="sub" style="margin:0"></span>
+    </form>
+    <ul class="stations" id="stations"></ul>
+  </section>
+
+  <section id="platSection" hidden>
+    <h2>2 &middot; Platforms</h2>
+    <div class="meta" id="stopMeta"></div>
+    <div id="platforms"></div>
+  </section>
+
+  <section id="outSection" hidden>
+    <h2>3 &middot; Device configuration</h2>
+    <div class="meta" id="outMeta"></div>
+    <div class="row" style="margin-bottom:12px">
+      <label>departures <input type="number" id="n" value="4" min="1" max="20" style="width:70px"></label>
+      <span class="sub" style="margin:0">two more than the display shows, so a cancellation cannot blank a row</span>
+    </div>
+    <div id="out"></div>
+    <ul class="notes" id="outNotes"></ul>
+  </section>
+</main>
+
+<script>
+const API = "https://api.transitous.org/api/v1";
+
+/* Mirrors of the firmware's limits, so the tool can say whether a stop's response
+   actually fits. TRANSPORT_BUF_SIZE and JSON_TOKEN_COUNT come from the app; the token
+   cost per departure was measured across four stations and is stable to within a few. */
+const FW_BUF_BYTES   = 16384;
+const FW_TOKEN_COUNT = 1280;
+const TOKENS_PER_DEP = 165;
+
+/* How many departures to pull when surveying a station. Has to be big enough that
+   every platform shows up at least once, which at a busy interchange means well past
+   the number of platforms. */
+const PROBE_N = 50;
+
+/* Two destinations whose bearings differ by more than this are treated as opposite
+   ways along the line rather than the same way. Platforms are physically directional,
+   so a genuine single-direction platform clusters far tighter than this; the slack is
+   for lines that fan out after leaving the stop. */
+const SPREAD_LIMIT_DEG = 100;
+
+const $ = (id) => document.getElementById(id);
+const state = { stop: null, platforms: [], selected: null };
+
+const esc = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const li = (cls, text) => '<li class="' + cls + '">' + esc(text) + "</li>";
+
+/* A community-run instance behind a cache: the occasional 5xx is worth one retry. */
+async function api(path, params) {
+  const url = API + path + "?" + new URLSearchParams(params);
+  let last;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch(url);          // no custom headers: avoids a preflight
+      if (r.ok) return { doc: await r.json(), url: url };
+      last = new Error("HTTP " + r.status);
+      if (r.status < 500) break;
+    } catch (e) { last = e; }
+    await new Promise((done) => setTimeout(done, 600 * (attempt + 1)));
+  }
+  throw last;
+}
+
+/* Same call, but keeping the raw text so the response can be weighed against the
+   device's buffer. Measuring beats estimating: the byte count is what decides
+   whether this stop fits in TRANSPORT_BUF_SIZE. */
+async function apiSized(path, params) {
+  const url = API + path + "?" + new URLSearchParams(params);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const text = await r.text();
+  return { doc: JSON.parse(text), bytes: new TextEncoder().encode(text).length, url: url };
+}
+
+/* Initial bearing from one coordinate to another, in degrees clockwise from north. */
+function bearing(lat1, lon1, lat2, lon2) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const p1 = rad(lat1), p2 = rad(lat2), dl = rad(lon2 - lon1);
+  const y = Math.sin(dl) * Math.cos(p2);
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const compass = (deg) => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+
+/* Mean of a set of bearings, taken as unit vectors so that the wrap at 360 does not
+   drag the average through the middle of the compass. */
+function meanBearing(degs) {
+  const rad = (d) => (d * Math.PI) / 180;
+  let x = 0, y = 0;
+  for (const d of degs) { x += Math.cos(rad(d)); y += Math.sin(rad(d)); }
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+/* Splits a platform's departures into directions of travel.
+
+   A platform is normally one direction, so the useful question is whether this one is
+   an exception. Every departure is reduced to the bearing from the platform to where
+   that trip ends up; those bearings are sorted around the compass and cut at the widest
+   empty arc. What is left spans the directions actually served: under SPREAD_LIMIT_DEG
+   it is one direction, and wider than that the second widest gap splits it in two.
+
+   Terminating short-turns are what usually cause the split - a train that arrives,
+   reverses, and leaves the way it came, from the same platform. */
+function splitDirections(deps) {
+  const withPos = deps.filter((d) => d.bearing !== null);
+  if (withPos.length === 0) return [{ deps: deps, bearing: null }];
+
+  const sorted = withPos.slice().sort((a, b) => a.bearing - b.bearing);
+  if (sorted.length === 1) return [{ deps: deps, bearing: sorted[0].bearing }];
+
+  /* Gaps between neighbours on the sorted list, then the arc that wraps past 360 from
+     the last bearing back to the first. The wrap is written out rather than taken
+     modulo: a set of identical bearings has to yield one empty arc of 360 degrees -
+     no spread at all - where the modulo form collapses it to zero and makes a
+     perfectly ordinary platform look like it faces every direction at once. */
+  const gaps = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    gaps.push({ after: i, size: sorted[i + 1].bearing - sorted[i].bearing });
+  }
+  gaps.push({
+    after: sorted.length - 1,
+    size: 360 - (sorted[sorted.length - 1].bearing - sorted[0].bearing),
+  });
+
+  const byGap = gaps.slice().sort((a, b) => b.size - a.size);
+
+  /* Rotate so the run starts just after the widest gap, then measure how far it
+     reaches. That span is the total angular width of everything this platform serves. */
+  const start = (byGap[0].after + 1) % sorted.length;
+  const ordered = sorted.slice(start).concat(sorted.slice(0, start));
+  const span = 360 - byGap[0].size;
+
+  if (span <= SPREAD_LIMIT_DEG || byGap.length < 2) {
+    return [{ deps: deps, bearing: meanBearing(ordered.map((d) => d.bearing)) }];
+  }
+
+  /* Wide enough to be two ways along the line: cut again at the next widest gap. */
+  const cutAt = ordered.indexOf(sorted[byGap[1].after]);
+  const groups = [ordered.slice(0, cutAt + 1), ordered.slice(cutAt + 1)]
+    .filter((g) => g.length)
+    .map((g) => ({ deps: g, bearing: meanBearing(g.map((d) => d.bearing)) }));
+
+  /* Fold in anything the API gave no coordinates for, so no departure is dropped
+     from the display. */
+  const orphans = deps.filter((d) => d.bearing === null);
+  if (orphans.length) groups[0].deps = groups[0].deps.concat(orphans);
+  return groups;
+}
+
+function hhmm(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+async function search(text) {
+  $("searchMsg").textContent = "searching...";
+  $("stations").innerHTML = "";
+  $("platSection").hidden = true;
+  $("outSection").hidden = true;
+  try {
+    const res = await api("/geocode", { text: text });
+    const stops = res.doc.filter((r) => r.type === "STOP");
+    $("searchMsg").textContent = stops.length ? "" : "nothing found";
+    for (const s of stops.slice(0, 12)) {
+      const item = document.createElement("li");
+      const b = document.createElement("button");
+      b.innerHTML = '<span class="nm"></span><span class="modes"></span><span class="id"></span>';
+      b.querySelector(".nm").textContent = s.name;
+      b.querySelector(".modes").textContent = (s.modes || []).join(", ");
+      b.querySelector(".id").textContent = s.id;
+      b.addEventListener("click", () => selectStop(s));
+      item.appendChild(b);
+      $("stations").appendChild(item);
+    }
+  } catch (e) {
+    $("searchMsg").innerHTML = '<span class="err">' + esc(e.message) + "</span>";
+  }
+}
+
+/* Surveys every platform of a station.
+
+   The id from the geocoder may already name a platform - tram and bus poles usually do.
+   Querying it *without* exactRadius is what makes one code path work for both: MOTIS
+   resolves any platform id up to its parent station and answers for all of them, which
+   is exactly the survey wanted here. */
+async function selectStop(stop) {
+  state.stop = stop;
+  state.selected = null;
+  $("platSection").hidden = false;
+  $("outSection").hidden = true;
+  $("stopMeta").textContent = "loading departures...";
+  $("platforms").innerHTML = "";
+
+  let doc;
+  try {
+    doc = (await api("/stoptimes", { stopId: stop.id, n: PROBE_N })).doc;
+  } catch (e) {
+    $("stopMeta").innerHTML = '<span class="err">' + esc(e.message) + "</span>";
+    return;
+  }
+
+  const groups = new Map();
+  for (const st of doc.stopTimes || []) {
+    const pl = st.place;
+    const to = st.tripTo || {};
+    const b = (pl.lat != null && to.lat != null)
+      ? bearing(pl.lat, pl.lon, to.lat, to.lon) : null;
+    if (!groups.has(pl.stopId)) groups.set(pl.stopId, []);
+    groups.get(pl.stopId).push({
+      time: pl.departure || pl.scheduledDeparture,
+      line: st.routeShortName || st.displayName || "?",
+      head: st.headsign || "",
+      from: (st.tripFrom || {}).name || "",
+      track: pl.track || pl.description || "",
+      cancelled: !!st.cancelled,
+      bearing: b,
+    });
+  }
+
+  if (!groups.size) {
+    $("stopMeta").innerHTML =
+      "No departures came back for this stop. It may be served only at other times of " +
+      "day, or the feed may not cover it.";
+    return;
+  }
+
+  state.platforms = Array.from(groups.entries())
+    .map((e) => ({ id: e[0], deps: e[1], dirs: splitDirections(e[1]) }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  $("stopMeta").innerHTML =
+    "<b>" + esc(stop.name) + "</b> &mdash; " + groups.size + " platform" +
+    (groups.size === 1 ? "" : "s") + " seen across the next " +
+    (doc.stopTimes || []).length + " departures.";
+  renderPlatforms();
+}
+
+function renderPlatforms() {
+  const host = $("platforms");
+  host.innerHTML = "";
+
+  for (const p of state.platforms) {
+    const div = document.createElement("div");
+    div.className = "plat";
+    const mixed = p.dirs.length > 1;
+    const lines = Array.from(new Set(p.deps.map((d) => d.line)));
+    const dirLabel = p.dirs
+      .map((g) => (g.bearing === null ? "?" : compass(g.bearing)))
+      .join(" + ");
+
+    let html =
+      '<h3><span class="id">' + esc(p.id) + "</span>" +
+      '<span class="badge ' + (mixed ? "many" : "one") + '">' +
+      (mixed ? "2 directions" : "towards " + dirLabel) + "</span>" +
+      '<button class="ghost" data-pick="' + esc(p.id) + '">use this</button></h3>' +
+      '<p class="lines">' +
+      (p.deps[0].track ? "track <b>" + esc(p.deps[0].track) + "</b> &middot; " : "") +
+      "<b>" + lines.length + "</b> line" + (lines.length === 1 ? "" : "s") + ": " +
+      esc(lines.join(", ")) + "</p>";
+
+    if (mixed) {
+      html +=
+        '<p class="warnbox"><b>This platform is not one direction.</b> Departures split ' +
+        "into " + esc(dirLabel) + ". A monitor pointed here will mix both ways along the " +
+        "line. Usually a service that terminates and reverses; the offending rows are " +
+        "marked below.</p>";
+    }
+
+    /* The whole point of the table: origin next to destination, so a trip that arrives
+       from where the others are heading is visible at a glance. */
+    const major = mixed
+      ? p.dirs.reduce((a, b) => (b.deps.length > a.deps.length ? b : a)).deps
+      : null;
+
+    html += '<div class="scroll"><table><tr><th>time</th><th>line</th><th>dir</th>' +
+            "<th>from</th><th>towards</th></tr>";
+    for (const d of p.deps.slice(0, 10)) {
+      const odd = major && major.indexOf(d) === -1;
+      html += "<tr" + (odd ? ' class="flip"' : "") + '><td class="t">' + hhmm(d.time) +
+        '</td><td class="ln">' + esc(d.line) + '</td><td class="dir">' +
+        (d.bearing === null ? "" : compass(d.bearing)) + "</td><td>" + esc(d.from) +
+        "</td><td>" + (odd ? "&#9888; " : "") + esc(d.head) +
+        (d.cancelled ? " (cancelled)" : "") + "</td></tr>";
+    }
+    html += "</table></div>";
+
+    div.innerHTML = html;
+    host.appendChild(div);
+  }
+
+  const picks = host.querySelectorAll("button[data-pick]");
+  for (const b of picks) {
+    b.addEventListener("click", () => pickPlatform(b.dataset.pick));
+  }
+}
+
+/* Fetches exactly what the device will fetch, so the reported size is measured rather
+   than estimated. */
+async function pickPlatform(id) {
+  state.selected = id;
+  $("outSection").hidden = false;
+  $("outMeta").textContent = "measuring the response the device will get...";
+  $("out").innerHTML = "";
+  $("outNotes").innerHTML = "";
+  $("outSection").scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const n = Math.max(1, Math.min(20, +$("n").value || 4));
+  let res;
+  try {
+    res = await apiSized("/stoptimes", { stopId: id, exactRadius: "true", n: n });
+  } catch (e) {
+    $("outMeta").innerHTML = '<span class="err">' + esc(e.message) + "</span>";
+    return;
+  }
+
+  const times = res.doc.stopTimes || [];
+  const count = times.length;
+  const tokens = count * TOKENS_PER_DEP + 30;
+  const plat = state.platforms.find((p) => p.id === id);
+
+  $("outMeta").innerHTML =
+    "<b>" + esc(state.stop.name) + "</b> &mdash; platform " +
+    '<span class="id">' + esc(id) + "</span>";
+
+  /* The base link carries everything except the id, matching MOTIS_BASE_LINK_DEFAULT in
+     the firmware, so changing stop is one setting rather than two. */
+  const base = "https://api.transitous.org/api/v1/stoptimes?exactRadius=true&n=" +
+               n + "&stopId=";
+  $("out").innerHTML =
+    '<div class="urlbox">monitor module 1</div>' +
+    '<div class="urlbox">monitor a_id ' + esc(id) + "</div>" +
+    '<div class="urlbox">monitor base_link ' + esc(base) + "</div>" +
+    '<p class="sub" style="margin:10px 0 0">Full request: <a href="' + esc(res.url) +
+    '" target="_blank" rel="noopener">' + esc(res.url) + "</a></p>";
+
+  const notes = [];
+  notes.push(li(count >= 2 ? "good" : "bad",
+    count + " departure" + (count === 1 ? "" : "s") + " returned" +
+    (count < 2 ? " - the display needs 2, raise the count or pick a busier platform" : "")));
+
+  const bytesOk = res.bytes <= FW_BUF_BYTES;
+  notes.push(li(bytesOk ? "good" : "bad",
+    res.bytes.toLocaleString() + " bytes against the " + FW_BUF_BYTES.toLocaleString() +
+    " byte TRANSPORT_BUF_SIZE" + (bytesOk ? "" : " - too big, lower the count")));
+
+  const tokOk = tokens <= FW_TOKEN_COUNT;
+  notes.push(li(tokOk ? "good" : "bad",
+    "about " + tokens + " jsmn tokens against JSON_TOKEN_COUNT " + FW_TOKEN_COUNT +
+    (tokOk ? "" : " - too many, lower the count or raise the pool")));
+
+  if (plat && plat.dirs.length > 1) {
+    notes.push(li("bad",
+      "This platform serves two directions, so the monitor will mix both ways along the line."));
+  } else if (plat) {
+    const b = plat.dirs[0].bearing;
+    notes.push(li("good",
+      "Single direction" + (b === null ? "" : ", towards " + compass(b)) + "."));
+  }
+
+  const cancelled = times.filter((s) => s.cancelled).length;
+  if (cancelled) {
+    notes.push(li("warn", cancelled + " of these " + count + " departures is cancelled " +
+      "right now. The firmware skips those, which is why the count is padded."));
+  }
+  const noRt = times.filter((s) => !s.realTime).length;
+  if (noRt) {
+    notes.push(li("warn", noRt + " of " + count +
+      " have no realtime data and fall back to the timetable."));
+  }
+
+  $("outNotes").innerHTML = notes.join("");
+}
+
+$("searchForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = $("q").value.trim();
+  if (t) search(t);
+});
+$("n").addEventListener("change", () => {
+  if (state.selected) pickPlatform(state.selected);
+});
+</script>
+</body>
+</html>

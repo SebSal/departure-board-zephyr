@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device configuration</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #16191d; --muted: #656d78;
+    --line: #dfe3e8; --accent: #0d6a7d; --accent-ink: #ffffff;
+    --ok: #0a6b3d; --warn: #8a5000; --bad: #b3000f; --code: #f0f2f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --panel: #1c2024; --ink: #e8eaed; --muted: #9aa3ad;
+      --line: #2e343a; --accent: #4fd1e0; --accent-ink: #04222a;
+      --ok: #56d99a; --warn: #e9b464; --bad: #ff5a63; --code: #24292f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h1 #rev { font: 400 12px var(--mono); color: var(--muted); vertical-align: middle; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  a { color: var(--accent); }
+  section {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600;
+  }
+  input[type=text], input[type=password], input[type=number], select {
+    background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; font: inherit; width: 100%;
+  }
+  input.bad, select.bad { border-color: var(--bad); }
+  button {
+    background: var(--accent); color: var(--accent-ink); border: 0; cursor: pointer;
+    border-radius: 6px; padding: 8px 14px; font: inherit; font-weight: 600;
+  }
+  button.ghost {
+    background: transparent; color: var(--accent); border: 1px solid var(--line);
+    font-weight: 500; padding: 7px 12px; font-size: 13px;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .fields { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 10px 14px; align-items: start; }
+  .fields > label { font-size: 13.5px; font-weight: 600; padding-top: 8px; }
+  .fields > label .req { color: var(--bad); font-weight: 400; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 3px 0 0; }
+  .hint code { font-family: var(--mono); font-size: 12px; }
+  @media (max-width: 620px) {
+    .fields { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .fields > label { padding-top: 10px; }
+  }
+  details { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+  details summary {
+    cursor: pointer; font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); font-weight: 600; margin-bottom: 12px;
+  }
+
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.on { background: var(--ok); }
+  .dot.busy { background: var(--warn); }
+  .state { font-size: 13.5px; color: var(--muted); }
+  .state b { color: var(--ink); font-weight: 600; }
+  .msg { font-size: 13.5px; margin: 12px 0 0; }
+  .msg.err { color: var(--bad); }
+  .msg.warn { color: var(--warn); }
+  .msg.ok { color: var(--ok); }
+  .msg ul { margin: 4px 0 0; padding-left: 18px; }
+
+  #log {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.45; background: var(--code);
+    border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; height: 340px;
+    overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0 0 12px;
+  }
+  #log div.prompt { color: var(--accent); }
+  #log div.wrn { color: var(--warn); }
+  #log div.err { color: var(--bad); }
+  #log div.sys { color: var(--muted); font-style: italic; }
+  ul.notes { margin: 12px 0 0; padding-left: 18px; font-size: 13.5px; }
+  ul.notes li { margin-bottom: 5px; }
+  ul.notes code { font-family: var(--mono); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Device configuration <span id="rev"></span></h1>
+  <p class="sub">
+    Fills the device's settings over its USB shell, so nothing has to be typed by hand.
+    Talks to the board with Web Serial straight from the browser; no server, no flashing.
+    Station ids come from the <a href="motis-stops.html">stop picker</a>.
+  </p>
+
+  <section>
+    <h2>1 &middot; Connection</h2>
+    <div class="row">
+      <button id="connect">Connect</button>
+      <button id="disconnect" class="ghost" disabled>Disconnect</button>
+      <button id="reset" class="ghost" disabled>Reset device</button>
+      <button id="configmode" class="ghost" disabled>Config mode + reset</button>
+      <span class="dot" id="dot"></span>
+      <span class="state" id="state">Not connected</span>
+    </div>
+    <p class="msg" id="connMsg"></p>
+  </section>
+
+  <section>
+    <h2>2 &middot; Configuration</h2>
+    <div class="fields" id="required"></div>
+    <details id="advanced">
+      <summary>Advanced (optional)</summary>
+      <div class="fields" id="optional"></div>
+    </details>
+    <div class="row" style="margin-top:16px">
+      <button id="send" disabled>Send configuration</button>
+      <button id="dump" class="ghost" disabled>Read back (dump)</button>
+      <span class="state" id="sendState"></span>
+    </div>
+    <p class="msg" id="sendMsg"></p>
+  </section>
+
+  <section>
+    <h2>3 &middot; Log</h2>
+    <div id="log"></div>
+    <form class="row" id="rawForm">
+      <input type="text" id="raw" placeholder="dump" autocomplete="off"
+             style="flex:1; min-width:200px; font-family: var(--mono); font-size: 13px" disabled>
+      <button type="submit" id="rawSend" class="ghost" disabled>Run</button>
+      <button type="button" id="clear" class="ghost">Clear</button>
+      <label class="state" style="display:flex; gap:5px; align-items:center">
+        <input type="checkbox" id="raw_mode" style="width:auto"> raw bytes
+      </label>
+    </form>
+    <ul class="notes">
+      <li>Needs a browser with Web Serial: Chrome, Edge, Opera or Firefox&nbsp;151+, over
+          <code>https://</code> or <code>file://</code>.</li>
+      <li>A <b>snap or flatpak</b> browser cannot see <code>/dev/ttyACM*</code>: Ubuntu's Firefox
+          and Chromium snaps have no <code>serial-port</code> interface, so the port chooser stays
+          empty even though the device is there. Use an unconfined build.</li>
+      <li>The shell only answers while the device is awake. Hold the button for
+          <b>3&nbsp;s</b> at boot to enter config mode - or press <b>Config mode + reset</b>
+          here, which does it without touching the board. It stays there for
+          <code>advanced/config_timeout</code> seconds (default 300) and then sleeps.</li>
+      <li>A device that boots with nobody reading its USB output goes mute for good: the
+          peripheral's tx fifo fills and never drains, so the shell answers nothing even though it
+          still executes what you send. Connect first, then <b>Reset device</b>, so this page is
+          attached across the boot. Straight after flashing it can also still be in the ROM
+          bootloader, which looks the same and is cured the same way.</li>
+      <li><b>Reset</b> pulses RTS, which the ESP32-C6 turns into a chip reset. USB re-enumerates,
+          so the page reconnects on its own &mdash; but the device boots into its normal cycle.</li>
+      <li><b>Config mode + reset</b> stores <code>advanced/enter_config</code> first, which the
+          firmware reads once on boot and deletes as it reads it. So the device comes up in
+          config mode exactly once and is back to normal after the boot that follows &mdash;
+          there is nothing to switch off. A pack below the low-battery cutoff still wins and
+          sleeps instead.</li>
+      <li>Only fields you fill in are sent. Values are quoted and non-ASCII bytes are sent as
+          <code>\xNN</code> escapes, because the shell drops raw bytes above 127.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+/* Mirrors of the firmware's limits, so a value that would be silently truncated is caught
+   here instead. Sizes come from device_config in src/config/config.h (one byte of each
+   array is the terminator); CMD_BUFF is CONFIG_SHELL_CMD_BUFF_SIZE. */
+const MAX_SSID      = 32;
+const MAX_PASSWORD  = 63;
+const MAX_LABEL     = 29;
+const MAX_ID        = 127;
+const MAX_BASE_LINK = 127;
+const MAX_CMD       = 255;
+
+/* The providers of src/transport/transport.c, in table order - the index is the id stored
+   as monitor/module. */
+const MODULES = [
+  { id: "0", name: "VRS",   base: "https://www.vrs.de/index.php?eID=tx_vrsinfo_departuremonitor&i=" },
+  { id: "1", name: "MOTIS", base: "https://api.transitous.org/api/v1/stoptimes?exactRadius=true&n=4&stopId=" },
+];
+
+const PROMPT = "uart:~$";
+
+/* The shell's RX ring buffer is 64 bytes (CONFIG_SHELL_BACKEND_SERIAL_RX_RING_BUFFER_SIZE)
+   and the shell thread competes with immediate-mode logging, so a long command written in
+   one go can lose its tail. Feeding it in small chunks keeps the ring from filling. */
+const CHUNK_BYTES = 16;
+const CHUNK_PAUSE_MS = 8;
+
+/* A command is done when the prompt comes back after the shell has echoed it. The prompt is
+   a sound signal on its own: the log backend only erases and redraws it outside command
+   context (shell.c sets that flag around the handler), so a prompt cannot appear while the
+   command is still running. Waiting for the echo first stops an unrelated log message that
+   lands between the write and the shell picking the line up from being read as completion.
+   Echo can be switched off, so it is a grace period and not a requirement. */
+const ECHO_GRACE_MS = 800;
+const PROMPT_TIMEOUT_MS = 5000;
+
+/* A reset drops the USB device and brings it back a moment later under the same port. Getting
+   back in quickly matters more than it looks: the peripheral's TX fifo holds one packet, and
+   nothing drains it until a host has the port open. A device that boots with nobody reading
+   fills that fifo, wedges, and stays mute until the next reset - so the reopen races the boot
+   rather than waiting politely for it. */
+const RESET_PULSE_MS = 150;
+/* The firmware announces its state on entry, so the boot log says whether the request took. */
+const CONFIG_BANNER = /STATE CONFIG/;
+const BANNER_TIMEOUT_MS = 6000;
+const REOPEN_POLL_MS = 100;
+const REOPEN_WINDOW_MS = 8000;
+
+const LOG_MAX_LINES = 2000;
+
+const FIELDS = [
+  { id: "ssid", cmd: "wifi ssid", title: "WiFi SSID", req: true, max: MAX_SSID,
+    hint: "2.4 GHz network the device joins on every wake." },
+  { id: "password", cmd: "wifi password", title: "WiFi password", req: true, max: MAX_PASSWORD,
+    type: "password", hint: "Sent in clear text over USB, and stored unencrypted on the device." },
+  { id: "a_label", cmd: "monitor a_label", title: "Station A label", req: true, max: MAX_LABEL,
+    hint: "Heading above the left column." },
+  { id: "a_id", cmd: "monitor a_id", title: "Station A id", req: true, max: MAX_ID,
+    hint: "Platform-level stop id, appended to the base link." },
+  { id: "b_label", cmd: "monitor b_label", title: "Station B label", req: true, max: MAX_LABEL,
+    hint: "Heading above the right column." },
+  { id: "b_id", cmd: "monitor b_id", title: "Station B id", req: true, max: MAX_ID,
+    hint: "Second platform - usually the other direction of the same stop." },
+  { id: "module", cmd: "monitor module", title: "Provider", req: true, type: "select",
+    hint: "Picks the parser, and the base link the ids are appended to." },
+  { id: "base_link", cmd: "monitor base_link", title: "Base link", max: MAX_BASE_LINK,
+    adv: true, hint: "Overrides the provider's built-in link, shown greyed out once one is picked." },
+  { id: "brightness", cmd: "device brightness", title: "Brightness", type: "number",
+    adv: true, min: 1, max_val: 100, ph: "50", hint: "Backlight in percent." },
+  { id: "display_time", cmd: "device display_time", title: "Display time", type: "number",
+    adv: true, min: 5, max_val: 300, ph: "30",
+    hint: "Seconds the departures stay on screen before the device sleeps." },
+  { id: "config_timeout", cmd: "advanced config_timeout", title: "Config timeout", type: "number",
+    adv: true, min: 10, max_val: 3600, ph: "300",
+    hint: "Seconds the device stays in config mode before sleeping." },
+  { id: "tls_verify", cmd: "advanced tls_verify", title: "Certificate check", type: "select",
+    adv: true, opts: [{ value: "1", text: "1 – on (default)" }, { value: "0", text: "0 – off" }],
+    hint: "Checks that the server certificate comes from Let's Encrypt. Switch off only for a " +
+          "base link on a host with another certificate authority." },
+];
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/* ---------------------------------- Form ---------------------------------- */
+
+function buildForm() {
+  for (const f of FIELDS) {
+    const host = $(f.adv ? "optional" : "required");
+
+    const label = document.createElement("label");
+    label.htmlFor = f.id;
+    label.textContent = f.title;
+    if (f.req) {
+      const star = document.createElement("span");
+      star.className = "req";
+      star.textContent = " *";
+      label.appendChild(star);
+    }
+
+    const cell = document.createElement("div");
+    let input;
+    if (f.type === "select") {
+      input = document.createElement("select");
+      input.appendChild(new Option("(leave unchanged)", ""));
+      const opts = f.opts || MODULES.map((m) => ({ value: m.id, text: m.id + " – " + m.name }));
+      for (const o of opts) {
+        input.appendChild(new Option(o.text, o.value));
+      }
+    } else {
+      input = document.createElement("input");
+      input.type = f.type === "password" ? "password" : (f.type === "number" ? "number" : "text");
+      if (f.type === "number") {
+        input.min = f.min;
+        input.max = f.max_val;
+      } else {
+        input.maxLength = f.max;
+      }
+      /* Placeholders carry the value the firmware falls back to when nothing is stored. */
+      if (f.ph) input.placeholder = f.ph;
+    }
+    input.id = f.id;
+    cell.appendChild(input);
+
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.id = f.id + "Hint";
+    hint.textContent = f.hint;
+    cell.appendChild(hint);
+
+    host.appendChild(label);
+    host.appendChild(cell);
+  }
+
+  /* The base link only means something next to the provider it belongs to. */
+  $("module").addEventListener("change", () => {
+    const m = MODULES.find((x) => x.id === $("module").value);
+    $("base_link").placeholder = m ? m.base : "";
+  });
+}
+
+/* The keys `dump` prints, against the fields they came from. */
+const DUMP_FIELDS = {
+  "wifi/ssid": "ssid",
+  "wifi/password": "password",
+  "monitor/a_label": "a_label",
+  "monitor/a_id": "a_id",
+  "monitor/b_label": "b_label",
+  "monitor/b_id": "b_id",
+  "monitor/module": "module",
+  "monitor/base_link": "base_link",
+  "device/brightness": "brightness",
+  "device/display_time": "display_time",
+  "advanced/config_timeout": "config_timeout",
+  "advanced/tls_verify": "tls_verify",
+};
+
+const DUMP_LINE = /^([a-z_]+\/[a-z_]+): ?(.*)$/;
+
+/* Fills the form from a dump. The password is the exception: the device prints *** or
+   (not set) rather than the secret, so that field stays empty and says what it knows in its
+   placeholder - filling it in would send the literal *** back on the next save. */
+function applyDump(lines) {
+  let found = 0;
+
+  for (const raw of lines) {
+    /* A line can carry the prompt if a log message interrupted one. */
+    const text = (raw.startsWith(PROMPT) ? raw.slice(PROMPT.length) : raw).trim();
+    const match = DUMP_LINE.exec(text);
+    if (!match) continue;
+
+    const id = DUMP_FIELDS[match[1]];
+    if (!id) continue;
+
+    const value = match[2].trim();
+    found++;
+
+    if (id === "password") {
+      $("password").value = "";
+      $("password").placeholder =
+        value === "(not set)" ? "(not set)" : "(unchanged - leave empty to keep it)";
+      continue;
+    }
+
+    const el = $(id);
+    if (el.tagName === "SELECT") {
+      el.value = Array.from(el.options).some((o) => o.value === value) ? value : "";
+      el.dispatchEvent(new Event("change"));
+    } else {
+      el.value = value;
+    }
+  }
+
+  return found;
+}
+
+/* Quotes one value for z_shell_make_argv. Everything outside a conservative safe set is
+   double quoted; inside the quotes only \" and \xNN mean anything, so a backslash has to
+   travel as \x5c. Bytes above 127 are escaped as well - CONFIG_SHELL_ASCII_FILTER drops
+   them from the input, but \xNN escapes are decoded after the filter has seen them. */
+function shellArg(value) {
+  if (/^[A-Za-z0-9_.:/=&+-]+$/.test(value)) {
+    return value;
+  }
+  let out = '"';
+  for (const b of new TextEncoder().encode(value)) {
+    if (b === 0x22) {
+      out += '\\"';
+    } else if (b === 0x5c || b < 0x20 || b > 0x7e) {
+      out += "\\x" + b.toString(16).padStart(2, "0");
+    } else {
+      out += String.fromCharCode(b);
+    }
+  }
+  return out + '"';
+}
+
+/* Turns the filled-in fields into shell commands. Empty fields are left alone, so the form
+   can be used for a single correction as well as a full setup. */
+function buildCommands() {
+  const cmds = [], errors = [], missing = [];
+
+  for (const f of FIELDS) {
+    const el = $(f.id);
+    el.classList.remove("bad");
+    const value = el.value.trim();
+
+    if (value === "") {
+      if (f.req) missing.push(f.title);
+      continue;
+    }
+
+    if (f.type === "number") {
+      if (!/^\d+$/.test(value) || +value < f.min || +value > f.max_val) {
+        errors.push(f.title + ": must be a whole number between " + f.min + " and " + f.max_val);
+        el.classList.add("bad");
+        continue;
+      }
+    } else {
+      const bytes = new TextEncoder().encode(value).length;
+      if (bytes > f.max) {
+        errors.push(f.title + ": " + bytes + " bytes, the device stores at most " + f.max);
+        el.classList.add("bad");
+        continue;
+      }
+    }
+
+    const text = f.cmd + " " + shellArg(value);
+    if (text.length > MAX_CMD) {
+      errors.push(f.title + ": escapes to " + text.length + " characters, the shell's line buffer holds " + MAX_CMD);
+      el.classList.add("bad");
+      continue;
+    }
+    cmds.push({ title: f.title, text: text });
+  }
+
+  return { cmds: cmds, errors: errors, missing: missing };
+}
+
+/* ---------------------------------- Log ---------------------------------- */
+
+const logEl = $("log");
+let liveEl = null;      /* the line the device has not finished yet, e.g. the prompt */
+let line = "";          /* its text - the cursor is always at the end of it */
+let escBuf = "";        /* an escape sequence that arrived split across two reads */
+let promptSeen = false;
+let pendingEcho = null; /* command whose echo has not come back yet */
+let echoMatched = false;
+let rxBytes = 0;
+let capture = null;     /* collects finished lines while a command's output is wanted */
+let banner = null;      /* { re, hit } while a boot message is being watched for */
+let prefilled = false;  /* whether the form has ever been filled from the device */
+
+/* The longest escape sequence worth waiting for the rest of. Beyond this the bytes are junk
+   rather than a sequence in pieces, and holding them back would stall the whole log. */
+const ESC_MAX = 32;
+
+const CSI = /^\x1B\[([0-9;?]*)[ -/]*([@-~])/;
+const OSC = /^\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/;
+const ESC_SHORT = /^\x1B[@-Z\\-_]/;
+
+/* A log line that interrupted the prompt carries the prompt's colours, so the level has to
+   win over the prefix. */
+function classify(text) {
+  if (text.includes("<err>")) return "err";
+  if (text.includes("<wrn>")) return "wrn";
+  if (text.startsWith(PROMPT)) return "prompt";
+  return "";
+}
+
+function atBottom() {
+  return logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 24;
+}
+
+/* Timestamp of a Zephyr log message, used to tell a real log line from shell output. */
+const LOG_LINE = /^\[\d{2}:\d{2}:\d{2}\.\d{3},\d{3}\]/;
+
+function appendLine(text, cls) {
+  /* A message that interrupted an idle prompt is printed straight after it: the shell only
+     backs the cursor up over the prompt when it believes it is past the first column. The
+     prefix is a redraw artefact rather than part of the message, so it goes. */
+  if (cls === undefined && text.startsWith(PROMPT)) {
+    const rest = text.slice(PROMPT.length).replace(/^\s+/, "");
+    if (LOG_LINE.test(rest)) text = rest;
+  }
+
+  if (capture) capture.push(text);
+  if (banner && banner.re.test(text)) banner.hit = true;
+
+  const stick = atBottom();
+  const div = document.createElement("div");
+  div.className = cls !== undefined ? cls : classify(text);
+  div.textContent = text;
+  logEl.insertBefore(div, liveEl);
+  while (logEl.childElementCount > LOG_MAX_LINES) {
+    logEl.removeChild(logEl.firstChild);
+  }
+  if (stick) logEl.scrollTop = logEl.scrollHeight;
+}
+
+function logSys(text) {
+  appendLine("── " + text, "sys");
+}
+
+/* The shell echoes a command as it collects it, so seeing the text come back means the line
+   has been taken and any prompt from here on is the one that follows it. */
+function noteEcho(text) {
+  if (pendingEcho && text.includes(pendingEcho)) {
+    pendingEcho = null;
+    echoMatched = true;
+  }
+}
+
+/* The prompt at the end of the line is the shell saying it is ready for the next command -
+   but only once the command it belongs to has been echoed. */
+function markIfPrompt() {
+  if (!pendingEcho && line.trimEnd().endsWith(PROMPT)) promptSeen = true;
+}
+
+/* Renders a read the way it came off the wire, for when the parsed view is not enough to
+   tell what the device actually said. */
+function visible(text) {
+  return text.replace(/[\x00-\x1F\x7F]/g, (c) => {
+    if (c === "\x1B") return "\\e";
+    if (c === "\r") return "\\r";
+    if (c === "\n") return "\\n";
+    return "\\x" + c.charCodeAt(0).toString(16).padStart(2, "0");
+  });
+}
+
+function showLive() {
+  const stick = atBottom();
+  liveEl.className = classify(line);
+  liveEl.textContent = line;
+  if (stick) logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* Acts on the two sequences that carry meaning here. The shell prints its prompt, and when a
+   log message has to go out it backs the cursor up over the prompt and erases it before
+   writing the line - so a view that only strips escapes ends up with "uart:~$ " glued to the
+   front of half the log. Backing up is the whole trick: since text is only ever appended,
+   "cursor back n" is "drop the last n characters", and the erase that follows then has
+   nothing left to do. */
+function applyCsi(params, final) {
+  if (final === "D") {
+    const n = Math.max(1, parseInt(params, 10) || 1);
+    line = line.slice(0, Math.max(0, line.length - n));
+  } else if (final === "J" && params === "2") {
+    line = "";
+  }
+}
+
+/* Feeds one read into the line. Escapes are matched against the text carried over from the
+   last read as well, because the USB peripheral hands over 64 bytes at a time and splits
+   sequences down the middle - the half that arrives alone would otherwise lose its escape to
+   the control-character filter and print as literal "[8D". */
+function feed(text) {
+  text = escBuf + text;
+  escBuf = "";
+
+  let i = 0;
+  while (i < text.length) {
+    /* The prompt is only on the line for a moment: the next log message either erases it or
+       is appended straight after it, and both can happen well inside a single read. Testing
+       only at the end of a read means never seeing it on a device that logs continuously, so
+       every step gets looked at. */
+    markIfPrompt();
+    const c = text[i];
+
+    if (c === "\x1B") {
+      const rest = text.slice(i);
+      const csi = CSI.exec(rest);
+      if (csi) {
+        applyCsi(csi[1], csi[2]);
+        i += csi[0].length;
+        continue;
+      }
+      const other = OSC.exec(rest) || ESC_SHORT.exec(rest);
+      if (other) {
+        i += other[0].length;
+        continue;
+      }
+      if (rest.length < ESC_MAX) {
+        escBuf = rest;      /* unfinished - the rest is in the next read */
+        break;
+      }
+      i += 1;               /* not a sequence after all, drop the escape itself */
+      continue;
+    }
+
+    if (c === "\n") {
+      noteEcho(line);
+      appendLine(line);
+      line = "";
+    } else if (c !== "\r" && c !== "\x7F" && c >= " ") {
+      line += c;
+    }
+    i += 1;
+  }
+
+  noteEcho(line);
+  markIfPrompt();
+  showLive();
+}
+
+/* ---------------------------------- Serial ---------------------------------- */
+
+let port = null, writer = null, reader = null, readTask = null;
+let closing = false, busy = false;
+let lastRx = 0;
+
+function setState(text, cls) {
+  $("state").textContent = text;
+  $("dot").className = "dot" + (cls ? " " + cls : "");
+}
+
+function setConnected(on) {
+  $("connect").disabled = on;
+  $("disconnect").disabled = !on;
+  for (const id of ["reset", "configmode", "send", "dump", "raw", "rawSend"]) {
+    $(id).disabled = !on || busy;
+  }
+  if (on && !busy) setState("Connected", "on");
+  if (!on) setState("Not connected", "");
+}
+
+function setBusy(on, what) {
+  busy = on;
+  const connected = port !== null && writer !== null;
+  for (const id of ["reset", "configmode", "send", "dump", "raw", "rawSend", "disconnect"]) {
+    $(id).disabled = !connected || on;
+  }
+  $("sendState").textContent = on ? what : "";
+  if (connected) setState(on ? what : "Connected", on ? "busy" : "on");
+}
+
+function message(id, text, cls, items) {
+  const el = $(id);
+  el.className = "msg" + (cls ? " " + cls : "");
+  el.textContent = text;
+  if (items && items.length) {
+    const ul = document.createElement("ul");
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    }
+    el.appendChild(ul);
+  }
+}
+
+async function readLoop() {
+  const decoder = new TextDecoder();
+  try {
+    reader = port.readable.getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value, { stream: true });
+      if (!text) continue;
+      lastRx = performance.now();
+      rxBytes += value.length;
+      if ($("raw_mode").checked) appendLine("« " + visible(text), "sys");
+      feed(text);
+    }
+  } catch (e) {
+    if (!closing) logSys("read stopped: " + e.message);
+  } finally {
+    if (reader) { try { reader.releaseLock(); } catch (e) {} reader = null; }
+  }
+}
+
+async function openPort() {
+  await port.open({ baudRate: 115200, bufferSize: 8192 });
+  /* The control lines are left exactly as the host parks them on open - DTR and RTS both
+     asserted, which the auto-reset circuit reads as neither line pulled. Normalising them
+     would be free on Linux, where both bits move in one TIOCMSET, but on Windows they go out
+     as two separate calls and the state in between is DTR low with RTS high: that is EN low,
+     so tidying up here would reset the device on every connect. */
+  writer = port.writable.getWriter();
+  closing = false;
+  readTask = readLoop();
+  setConnected(true);
+}
+
+async function closePort() {
+  closing = true;
+  if (reader) { try { await reader.cancel(); } catch (e) {} }
+  if (readTask) { try { await readTask; } catch (e) {} readTask = null; }
+  if (writer) { try { writer.releaseLock(); } catch (e) {} writer = null; }
+  if (port) { try { await port.close(); } catch (e) {} }
+  setConnected(false);
+}
+
+async function connect() {
+  message("connMsg", "");
+  prefilled = false;
+  if (!("serial" in navigator)) {
+    message("connMsg", "This browser has no Web Serial. Use Chrome, Edge, Opera or Firefox 151+ " +
+                       "on desktop - and not a snap or flatpak build, which cannot see serial " +
+                       "devices at all.", "err");
+    return;
+  }
+  try {
+    port = await navigator.serial.requestPort();
+  } catch (e) {
+    /* A cancelled chooser and an empty one both come back as NotFoundError, so the message
+       has to cover both. Empty usually means the device is asleep or the browser is confined. */
+    message("connMsg", "No port picked. If the chooser was empty: the device only shows up while " +
+                       "it is awake (hold the button for 3 s), and a snap or flatpak browser " +
+                       "cannot see serial devices at all.", "");
+    port = null;
+    return;
+  }
+  try {
+    await openPort();
+    logSys("connected");
+  } catch (e) {
+    message("connMsg", "Could not open the port: " + e.message, "err");
+    port = null;
+    setConnected(false);
+    return;
+  }
+
+  await loadConfig("connMsg");
+}
+
+/* Asking the device what it has, right after connecting, fills the form and doubles as a
+   health check: a device whose output has wedged answers this with nothing at all. */
+async function loadConfig(source) {
+  setBusy(true, "Reading configuration…");
+  let found = 0;
+  try {
+    found = await readBack();
+  } catch (e) {
+    logSys("read back failed: " + e.message);
+  }
+  setBusy(false);
+  if (found) prefilled = true;
+
+  if (!source) {
+    /* The caller has its own story to tell and folds the outcome into it. */
+  } else if (found) {
+    message(source, "The form shows what the device has stored. The password is never read " +
+                    "back - leave it empty to keep the stored one.", "ok");
+  } else {
+    message(source, "The device answered nothing, so the form could not be filled. It is most " +
+                    "likely mute rather than dead: a board that booted with nothing reading its " +
+                    "USB stays silent until the next reset, though it still executes what you " +
+                    "send. Press Config mode + reset to bring it back.", "err");
+  }
+  return found;
+}
+
+async function disconnect() {
+  await closePort();
+  port = null;
+  prefilled = false;
+  logSys("disconnected");
+  message("connMsg", "");
+}
+
+/* Holds EN low for a moment, which is what the USB Serial/JTAG peripheral makes of RTS high
+   while DTR is low - the same auto-reset circuit esptool drives. DTR stays low the whole time
+   so the chip comes back up in the application and not in the ROM loader.
+
+   Each RTS change is followed by a write of the unchanged DTR value. Windows' usbser.sys only
+   emits the CDC set-control-line-state request when DTR moves, so an RTS-only change would
+   never reach the device and it would either not reset or never come out of reset. The extra
+   write is a no-op everywhere else. */
+async function pulseReset() {
+  await port.setSignals({ dataTerminalReady: false, requestToSend: true });   /* EN low */
+  await port.setSignals({ dataTerminalReady: false });
+  await sleep(RESET_PULSE_MS);
+  await port.setSignals({ dataTerminalReady: false, requestToSend: false });  /* EN released */
+  await port.setSignals({ dataTerminalReady: false });
+}
+
+/* Arms the boot flag and reboots into it. The flag is a setting the firmware reads once and
+   deletes on the spot, so the device leaves config mode by itself on the boot after this one -
+   there is nothing to undo. Worth doing even against a device that has gone mute: input still
+   reaches the shell when its output has wedged, so the command lands unacknowledged and the
+   reset that follows brings the output back. */
+async function enterConfigMode() {
+  message("connMsg", "");
+  setBusy(true, "Arming config mode…");
+  let acked;
+  try {
+    acked = await runCommand("advanced enter_config 1");
+  } catch (e) {
+    setBusy(false);
+    message("connMsg", "Could not send the command: " + e.message, "err");
+    return;
+  }
+  if (!acked) {
+    logSys("no answer to the arming command - carrying on, a mute device still executes it");
+  }
+  await resetDevice({ armed: true });
+}
+
+async function waitForBanner() {
+  const until = performance.now() + BANNER_TIMEOUT_MS;
+  while (performance.now() < until) {
+    if (banner.hit) return true;
+    await sleep(50);
+  }
+  return false;
+}
+
+/* The device disappears off the bus while it reboots, so the port is closed and reopened
+   rather than waited on. */
+async function resetDevice(opts) {
+  const armed = opts === true || (opts && opts.armed === true);
+  setBusy(true, "Resetting…");
+  message("connMsg", "");
+  logSys("reset: pulsing RTS");
+  try {
+    await pulseReset();
+  } catch (e) {
+    /* Either the device already left the bus - which means the reset landed - or this port
+       does not expose the control lines at all. */
+    logSys("signal error (usually just the reset landing): " + e.message);
+  }
+
+  const target = port;
+  /* Armed before the port closes: the state is announced early in the boot, and the reopen
+     below deliberately races that boot rather than waiting for it. */
+  banner = armed ? { re: CONFIG_BANNER, hit: false } : null;
+  await closePort();
+
+  const until = performance.now() + REOPEN_WINDOW_MS;
+  let reopened = false;
+  while (performance.now() < until) {
+    try {
+      port = target;
+      await openPort();
+      reopened = true;
+      break;
+    } catch (e) {
+      /* A half-open port would fail every further attempt with "already open". */
+      try { await port.close(); } catch (e2) {}
+      await sleep(REOPEN_POLL_MS);
+    }
+  }
+
+  if (!reopened) {
+    banner = null;
+    port = null;
+    setConnected(false);
+    setBusy(false);
+    logSys("could not reopen the port after the reset");
+    message("connMsg", "The device was reset but did not come back on the same port. Press " +
+                       "Connect and pick it again." + (armed ? " The config mode request is " +
+                       "still stored and will be used by the next boot." : ""), "err");
+    return;
+  }
+
+  logSys("reconnected after reset");
+
+  let text, cls = "ok";
+  if (armed) {
+    setState("Waiting for the boot…", "busy");
+    const seen = await waitForBanner();
+    banner = null;
+    if (seen) {
+      text = "Config mode confirmed. The shell stays up for the config timeout (default 300 s).";
+    } else {
+      text = "The device was reset with config mode requested, but it never reported entering " +
+             "it. A pack below the low-battery cutoff shows the warning and sleeps instead, and " +
+             "the request is used up either way.";
+      cls = "";
+    }
+  } else {
+    text = "Device reset and reconnected. It boots into its normal cycle - use Config mode + " +
+           "reset, or hold the button for 3 s during the reset, to get the shell back.";
+  }
+
+  /* Only worth asking if the form is still empty: a device that was mute when this page
+     connected can answer now, and nothing typed since then gets overwritten. */
+  if (!prefilled) {
+    const found = await loadConfig(null);
+    text += found ? " The form now shows what the device has stored."
+                  : " It answered nothing when asked for its configuration, so its output is " +
+                    "still wedged - reset it once more.";
+    if (!found) cls = "err";
+  }
+
+  setBusy(false);
+  message("connMsg", text, cls);
+}
+
+/* ---------------------------------- Commands ---------------------------------- */
+
+async function write(text) {
+  const bytes = new TextEncoder().encode(text);
+  for (let i = 0; i < bytes.length; i += CHUNK_BYTES) {
+    await writer.write(bytes.slice(i, i + CHUNK_BYTES));
+    await sleep(CHUNK_PAUSE_MS);
+  }
+}
+
+async function waitForPrompt() {
+  const start = performance.now();
+  while (performance.now() - start < PROMPT_TIMEOUT_MS) {
+    await sleep(30);
+    if (promptSeen) {
+      return true;
+    }
+    if (pendingEcho && performance.now() - start > ECHO_GRACE_MS) {
+      pendingEcho = null;   /* no echo coming; fall back to the bare prompt */
+      markIfPrompt();       /* the prompt may already be sitting there, unreported */
+    }
+  }
+  return false;
+}
+
+/* Sends one line and waits for the shell to come back for the next one. Writing straight
+   through would work most of the time, but a settings write goes to flash and the device
+   would be collecting the next command while doing it. */
+async function runCommand(text) {
+  promptSeen = false;
+  pendingEcho = text;
+  echoMatched = false;
+  const rxAtSend = rxBytes;
+  lastRx = performance.now();
+  await write(text + "\r\n");
+  const ok = await waitForPrompt();
+  if (!ok) {
+    logSys("no prompt after “" + text + "”, carrying on [echo " +
+           (echoMatched ? "seen" : "NOT seen") + ", " + (rxBytes - rxAtSend) +
+           " bytes in since the write, " + rxBytes + " since connect, line " +
+           JSON.stringify(line) + "]");
+  }
+  return ok;
+}
+
+/* Reads the device's stored configuration into the form. */
+async function readBack() {
+  capture = [];
+  let lines;
+  try {
+    await runCommand("dump");
+  } finally {
+    lines = capture;
+    capture = null;
+  }
+  return applyDump(lines);
+}
+
+async function sendConfig() {
+  const built = buildCommands();
+
+  if (built.errors.length) {
+    message("sendMsg", "Nothing sent, these values do not fit:", "err", built.errors);
+    return;
+  }
+  if (!built.cmds.length) {
+    message("sendMsg", "Nothing to send - every field is empty.", "err");
+    return;
+  }
+
+  message("sendMsg", "");
+  setBusy(true, "Sending…");
+  const rxBefore = rxBytes;
+  let sent = 0;
+  try {
+    for (const cmd of built.cmds) {
+      setBusy(true, "Sending " + (sent + 1) + "/" + built.cmds.length + " …");
+      await runCommand(cmd.text);
+      sent++;
+    }
+    await runCommand("dump");
+  } catch (e) {
+    setBusy(false);
+    message("sendMsg", "Stopped after " + sent + " of " + built.cmds.length +
+                       " commands: " + e.message, "err");
+    return;
+  }
+  setBusy(false);
+
+  /* Not one byte back over a whole batch means nothing is listening, which is a different
+     problem from a command that failed - and the usual cause is a device that is not running
+     the application at all. */
+  if (rxBytes === rxBefore) {
+    message("sendMsg", "The device did not answer - not one byte came back. Note that the " +
+                       "commands were most likely applied anyway: input keeps working when " +
+                       "output does not. A device that booted with nothing reading its USB fills " +
+                       "the peripheral's tx fifo, and it stays mute until the next reset. Press " +
+                       "Reset device - this page stays attached across the reset, which is what " +
+                       "keeps the fifo draining - and hold the board button for 3 s during it if " +
+                       "you want config mode.", "err");
+    return;
+  }
+
+  if (built.missing.length) {
+    message("sendMsg", "Sent " + sent + " settings. The device also needs these before it " +
+                       "leaves config mode:", "warn", built.missing);
+  } else {
+    message("sendMsg", "Sent " + sent + " settings. Check the dump below, then reset or let the " +
+                       "device sleep.", "ok");
+  }
+}
+
+async function runOnce(text) {
+  setBusy(true, "Running…");
+  try {
+    await runCommand(text);
+  } catch (e) {
+    message("sendMsg", "Command failed: " + e.message, "err");
+  }
+  setBusy(false);
+}
+
+/* ---------------------------------- Wiring ---------------------------------- */
+
+buildForm();
+liveEl = document.createElement("div");
+logEl.appendChild(liveEl);
+logSys("not connected - press Connect and pick the device's serial port");
+
+$("connect").addEventListener("click", connect);
+$("disconnect").addEventListener("click", disconnect);
+$("reset").addEventListener("click", () => resetDevice());
+$("configmode").addEventListener("click", enterConfigMode);
+$("send").addEventListener("click", sendConfig);
+$("dump").addEventListener("click", () => loadConfig("sendMsg"));
+$("clear").addEventListener("click", () => {
+  logEl.textContent = "";
+  line = "";
+  escBuf = "";
+  liveEl = document.createElement("div");
+  logEl.appendChild(liveEl);
+});
+$("rawForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const text = $("raw").value.trim();
+  if (!text || busy) return;
+  $("raw").value = "";
+  runOnce(text);
+});
+
+/* Unplugged, or reset without going through the button. */
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("disconnect", (ev) => {
+    if (port && ev.target === port && !closing) {
+      logSys("device disappeared from the bus");
+      closePort().then(() => { port = null; });
+    }
+  });
+}
+
+$("rev").textContent = "rev 9";
+setConnected(false);
+</script>
+</body>
+</html>

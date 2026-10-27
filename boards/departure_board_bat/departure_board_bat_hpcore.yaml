@@ -1,0 +1,15 @@
+identifier: departure_board_bat/esp32c6/hpcore
+name: Departure Board Battery
+type: mcu
+arch: riscv
+toolchain:
+  - zephyr
+supported:
+  - adc
+  - gpio
+  - watchdog
+  - dma
+  - pwm
+  - spi
+  - counter
+  - entropy

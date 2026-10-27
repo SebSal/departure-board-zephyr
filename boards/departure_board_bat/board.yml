@@ -1,0 +1,5 @@
+board:
+  name: departure_board_bat
+  full_name: Departure Board Battery
+  socs:
+  - name: esp32c6
