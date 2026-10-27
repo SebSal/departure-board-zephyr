@@ -29,6 +29,9 @@ int hw_watchdog_start(int32_t awake_budget_sec);
 /* Stops the watchdog. */
 void hw_watchdog_stop(void);
 
+/* True if the board has a battery that can be measured. */
+bool hw_has_battery(void);
+
 /* Reads the battery through the divider and scales the result back up to the pack voltage. */
 int hw_battery_read_mv(int32_t *val_ret);
 

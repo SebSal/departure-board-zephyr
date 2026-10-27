@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Sebastian Salveter
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Presents a monochrome display rotated 90 degrees clockwise.
+
+  The UC8253 panel scans portrait (240 x 416) and has no rotation of its own:
+  uc81xx implements no set_orientation, and LVGL cannot rotate for it either,
+  because lv_draw_sw_rotate and lv_draw_sw_transform both skip the I1 colour
+  format a 1 bit panel forces. So this node sits between LVGL and the panel,
+  takes landscape writes and transposes them into the panel's orientation.
+
+  width and height describe the rotated view, so they are the panel's height
+  and width swapped.
+
+compatible: "app,display-rotate"
+
+include: display-controller.yaml
+
+properties:
+  display:
+    type: phandle
+    required: true
+    description: The panel this node rotates.

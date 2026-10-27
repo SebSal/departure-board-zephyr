@@ -61,6 +61,10 @@ module = APP_HW
 module-str = app_hw
 source "subsys/logging/Kconfig.template.log_config"
 
+module = APP_DISPLAY_ROTATE
+module-str = app_display_rotate
+source "subsys/logging/Kconfig.template.log_config"
+
 module = APP_CONFIG
 module-str = app_config
 source "subsys/logging/Kconfig.template.log_config"

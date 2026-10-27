@@ -114,7 +114,7 @@ static void init_entry(void *o)
 	struct s_object *s = (struct s_object *)o;
 
 	/* Checked before the config. Just got back to sleep as fast as possible.*/
-	if (s->battery_voltage < CONFIG_APP_BATTERY_LOW_CUTOFF_MV) {
+	if (hw_has_battery() && s->battery_voltage < CONFIG_APP_BATTERY_LOW_CUTOFF_MV) {
 		LOG_WRN("Battery at %d mV, below the %d mV cutoff. Skipping the wifi cycle.",
 				s->battery_voltage, CONFIG_APP_BATTERY_LOW_CUTOFF_MV);
 		smf_set_state(SMF_CTX(s), &monitor_states[STATE_LOW_BATTERY]);
@@ -376,11 +376,13 @@ int main(void)
 	}
 
 	/* Read battery voltage.*/
-	ret = hw_battery_read_mv(&s_obj.battery_voltage);
-	if (ret < 0) {
-		hw_device_failure("Battery ADC");
+	if (hw_has_battery()) {
+		ret = hw_battery_read_mv(&s_obj.battery_voltage);
+		if (ret < 0) {
+			hw_device_failure("Battery ADC");
+		}
+		LOG_INF("Battery voltage: %d mV", s_obj.battery_voltage);
 	}
-	LOG_INF("Battery voltage: %d mV", s_obj.battery_voltage);
 
 	/* Check if devices have been initialized. */
 	if (!hw_display_is_ready()) {

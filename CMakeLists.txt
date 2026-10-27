@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20.0)
 set(BOARD_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 # Default board; "west build -b <board>" still overrides it.
 if(NOT DEFINED BOARD AND NOT DEFINED ENV{BOARD})
-  set(BOARD departure_board_bat/esp32c6/hpcore)
+  set(BOARD departure_board_eink/esp32c6/hpcore)
 endif()
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
@@ -15,7 +15,6 @@ target_sources(app PRIVATE
   src/net/http_client.c
   src/net/ntp.c
   src/net/wifi.c
-  src/ui/ui.c
   src/transport/transport.c
   src/transport/vrs.c
   src/transport/motis.c
@@ -24,6 +23,16 @@ target_sources(app PRIVATE
   src/config/shell.c
   src/config/config.c
 )
+
+# A 1 bpp panel gets its own screens: the colour layout's line badges and small type do not
+# survive the loss of colour, so each display keeps its own implementation of ui.h.
+if(CONFIG_LV_COLOR_DEPTH_1)
+  target_sources(app PRIVATE src/ui/ui_mono.c)
+else()
+  target_sources(app PRIVATE src/ui/ui.c)
+endif()
+
+target_sources_ifdef(CONFIG_DT_HAS_APP_DISPLAY_ROTATE_ENABLED app PRIVATE src/hw/display_rotate.c)
 
 target_include_directories(app PRIVATE src lib/jsmn)
 

@@ -1,0 +1,5 @@
+board:
+  name: departure_board_eink
+  full_name: Departure Board E-Ink
+  socs:
+  - name: esp32c6

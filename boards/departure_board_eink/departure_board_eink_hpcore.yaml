@@ -1,0 +1,13 @@
+identifier: departure_board_eink/esp32c6/hpcore
+name: Departure Board E-Ink
+type: mcu
+arch: riscv
+toolchain:
+  - zephyr
+supported:
+  - gpio
+  - watchdog
+  - dma
+  - spi
+  - counter
+  - entropy

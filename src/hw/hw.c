@@ -239,6 +239,11 @@ void hw_watchdog_stop(void)
 
 /* ---------------------------------------- Battery --------------------------------------------- */
 
+bool hw_has_battery(void)
+{
+	return HAS_BATTERY;
+}
+
 int hw_battery_read_mv(int32_t *val_ret)
 {
 #if !HAS_BATTERY
