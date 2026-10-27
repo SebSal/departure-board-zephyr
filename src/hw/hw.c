@@ -21,15 +21,27 @@ LOG_MODULE_REGISTER(app_hw, CONFIG_APP_HW_LOG_LEVEL);
 
 /* ---------------------------------------- Devices --------------------------------------------- */
 
+/* Optional hardware, present when the board devicetree describes it. */
+#define HAS_POWER_RAILS DT_NODE_HAS_PROP(DT_PATH(zephyr_user), disp_en_gpios)
+#define HAS_BACKLIGHT   DT_NODE_EXISTS(DT_ALIAS(ledbacklight))
+#define HAS_BATTERY     DT_NODE_HAS_PROP(DT_PATH(zephyr_user), io_channels)
+
 static const struct gpio_dt_spec btn = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
-static const struct gpio_dt_spec disp_en = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), disp_en_gpios);
-static const struct gpio_dt_spec bat_en = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), bat_en_gpios);
 
 static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(wdt0));
 static const struct device *const display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 static const struct device *const longpress_dev = DEVICE_DT_GET(DT_PATH(longpress));
 
+#if HAS_POWER_RAILS
+static const struct gpio_dt_spec disp_en = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), disp_en_gpios);
+#endif
+
+#if HAS_BACKLIGHT
 static const struct pwm_dt_spec pwm_backlight = PWM_DT_SPEC_GET(DT_ALIAS(ledbacklight));
+#endif
+
+#if HAS_BATTERY
+static const struct gpio_dt_spec bat_en = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), bat_en_gpios);
 static const struct adc_dt_spec adc_channel = ADC_DT_SPEC_GET(DT_PATH(zephyr_user));
 
 #define VBATT_HIGH_SIDE_OHMS DT_PROP(DT_PATH(zephyr_user), vbatt_high_side_ohms)
@@ -39,6 +51,7 @@ static const struct voltage_divider_dt_spec vbatt = {
 	.full_ohms = VBATT_HIGH_SIDE_OHMS + VBATT_LOW_SIDE_OHMS,
 	.output_ohms = VBATT_LOW_SIDE_OHMS,
 };
+#endif
 
 /* ---------------------------------------- Button ---------------------------------------------- */
 
@@ -90,22 +103,44 @@ bool hw_button_is_pressed(void)
 
 /* ---------------------------------------- Power ----------------------------------------------- */
 
-int hw_power_up(void)
+#if HAS_POWER_RAILS || HAS_BATTERY
+/* Enables an output rail, releasing the pad hold from the previous deep sleep first. */
+static int rail_enable(const struct gpio_dt_spec *rail)
 {
-	if (!gpio_is_ready_dt(&disp_en) || !gpio_is_ready_dt(&bat_en) || !gpio_is_ready_dt(&btn)) {
+	if (!gpio_is_ready_dt(rail)) {
 		return -ENODEV;
 	}
 
-	/* Release the pad hold from the previous deep sleep. */
-	gpio_hold_dis(disp_en.pin);
-	gpio_hold_dis(bat_en.pin);
+	gpio_hold_dis(rail->pin);
+
+	return gpio_pin_configure_dt(rail, GPIO_OUTPUT_ACTIVE);
+}
+
+/* Switches an output rail off and holds it there through deep sleep. */
+static void rail_disable(const struct gpio_dt_spec *rail)
+{
+	gpio_pin_set_dt(rail, 0);
+	gpio_hold_en(rail->pin);
+}
+#endif
+
+int hw_power_up(void)
+{
+	if (!gpio_is_ready_dt(&btn)) {
+		return -ENODEV;
+	}
+
+	int ret = 0;
 
 	/* Enable display, button and battery voltage measurement. */
-	int ret = gpio_pin_configure_dt(&disp_en, GPIO_OUTPUT_ACTIVE);
-
+#if HAS_POWER_RAILS
+	ret = rail_enable(&disp_en);
+#endif
+#if HAS_BATTERY
 	if (ret == 0) {
-		ret = gpio_pin_configure_dt(&bat_en, GPIO_OUTPUT_ACTIVE);
+		ret = rail_enable(&bat_en);
 	}
+#endif
 	if (ret == 0) {
 		ret = gpio_pin_configure_dt(&btn, GPIO_INPUT);
 	}
@@ -120,10 +155,12 @@ int hw_power_up(void)
 /* Switch off the display and battery measurement divider to save power. */
 static void power_down_peripherals(void)
 {
-	gpio_pin_set_dt(&disp_en, 0);
-	gpio_pin_set_dt(&bat_en, 0);
-	gpio_hold_en(disp_en.pin);
-	gpio_hold_en(bat_en.pin);
+#if HAS_POWER_RAILS
+	rail_disable(&disp_en);
+#endif
+#if HAS_BATTERY
+	rail_disable(&bat_en);
+#endif
 }
 
 void hw_enter_deep_sleep(void)
@@ -204,6 +241,11 @@ void hw_watchdog_stop(void)
 
 int hw_battery_read_mv(int32_t *val_ret)
 {
+#if !HAS_BATTERY
+	ARG_UNUSED(val_ret);
+
+	return -ENOTSUP;
+#else
 	int ret = 0;
 
 	if (!adc_is_ready_dt(&adc_channel)) {
@@ -256,6 +298,7 @@ int hw_battery_read_mv(int32_t *val_ret)
 	*val_ret = val_mv;
 
 	return 0;
+#endif
 }
 
 /* Curve from google, not sure if correct. Has to be tested. */
@@ -294,16 +337,23 @@ bool hw_display_is_ready(void)
 		return false;
 	}
 
+#if HAS_BACKLIGHT
 	if (!pwm_is_ready_dt(&pwm_backlight)) {
 		LOG_ERR("Display backlight PWM not ready");
 		return false;
 	}
+#endif
 
 	return true;
 }
 
 int hw_display_set_brightness(int32_t brightness)
 {
+#if !HAS_BACKLIGHT
+	ARG_UNUSED(brightness);
+
+	return -ENOTSUP;
+#else
 	int ret = 0;
 
 	/* Display is very bright, divide by 200 instead of 100. */
@@ -313,6 +363,7 @@ int hw_display_set_brightness(int32_t brightness)
 		return ret;
 	}
 	return 0;
+#endif
 }
 
 void hw_display_blanking_off(void)
