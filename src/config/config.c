@@ -14,6 +14,7 @@ LOG_MODULE_REGISTER(app_config, CONFIG_APP_CONFIG_LOG_LEVEL);
 static struct device_config config = {
 	.device_brightness = CONFIG_APP_DISPLAY_BRIGHTNESS,
 	.device_display_time = CONFIG_APP_DISPLAY_TIME_SEC,
+	.device_refresh_time = CONFIG_APP_REFRESH_TIME_SEC,
 	.advanced_config_timeout = CONFIG_APP_CONFIG_TIMEOUT_DEFAULT_SEC,
 	.advanced_tls_verify = 1,
 };
@@ -25,6 +26,9 @@ BUILD_ASSERT(CONFIG_APP_DISPLAY_BRIGHTNESS >= CFG_BRIGHTNESS_MIN &&
 BUILD_ASSERT(CONFIG_APP_DISPLAY_TIME_SEC >= CFG_DISPLAY_TIME_MIN &&
 				 CONFIG_APP_DISPLAY_TIME_SEC <= CFG_DISPLAY_TIME_MAX,
 			 "APP_DISPLAY_TIME_SEC is outside CFG_DISPLAY_TIME_MIN..MAX");
+BUILD_ASSERT(CONFIG_APP_REFRESH_TIME_SEC >= CFG_REFRESH_TIME_MIN &&
+				 CONFIG_APP_REFRESH_TIME_SEC <= CFG_REFRESH_TIME_MAX,
+			 "APP_REFRESH_TIME_SEC is outside CFG_REFRESH_TIME_MIN..MAX");
 BUILD_ASSERT(CONFIG_APP_CONFIG_TIMEOUT_DEFAULT_SEC >= CFG_CONFIG_TIMEOUT_MIN &&
 				 CONFIG_APP_CONFIG_TIMEOUT_DEFAULT_SEC <= CFG_CONFIG_TIMEOUT_MAX,
 			 "APP_CONFIG_TIMEOUT_DEFAULT_SEC is outside CFG_CONFIG_TIMEOUT_MIN..MAX");
@@ -41,6 +45,7 @@ static bool monitor_base_link_set;
 
 static bool device_brightness_set;
 static bool device_display_time_set;
+static bool device_refresh_time_set;
 
 static bool advanced_config_timeout_set;
 static bool advanced_enter_config_set;
@@ -183,6 +188,12 @@ static int device_settings_set(const char *name, size_t len, settings_read_cb re
 		LOG_DBG("Read %s with value %d", name, config.device_display_time);
 		return rc;
 	}
+	if (strcmp(name, CFG_NAME_DEVICE_REFRESH_TIME) == 0) {
+		rc = read_int32(name, len, read_cb, cb_arg, &config.device_refresh_time,
+						&device_refresh_time_set);
+		LOG_DBG("Read %s with value %d", name, config.device_refresh_time);
+		return rc;
+	}
 	return 0;
 }
 
@@ -313,6 +324,11 @@ int config_set_device_brightness(int32_t brightness)
 int config_set_device_display_time(int32_t seconds)
 {
 	return save_int32(CFG_KEY_DEVICE_DISPLAY_TIME, seconds, &config.device_display_time);
+}
+
+int config_set_device_refresh_time(int32_t seconds)
+{
+	return save_int32(CFG_KEY_DEVICE_REFRESH_TIME, seconds, &config.device_refresh_time);
 }
 
 int config_set_advanced_config_timeout(int32_t value)

@@ -154,6 +154,18 @@ static int set_display_time(const struct shell *sh, size_t argc, char **argv)
 	return report_save(sh, CFG_KEY_DEVICE_DISPLAY_TIME, config_set_device_display_time(value));
 }
 
+static int set_refresh_time(const struct shell *sh, size_t argc, char **argv)
+{
+	int32_t value;
+	int rc = parse_int32(sh, CFG_KEY_DEVICE_REFRESH_TIME, argv[1], CFG_REFRESH_TIME_MIN,
+						 CFG_REFRESH_TIME_MAX, &value);
+
+	if (rc < 0) {
+		return rc;
+	}
+	return report_save(sh, CFG_KEY_DEVICE_REFRESH_TIME, config_set_device_refresh_time(value));
+}
+
 static int set_config_timeout(const struct shell *sh, size_t argc, char **argv)
 {
 	int32_t value;
@@ -213,6 +225,7 @@ static int cmd_dump(const struct shell *sh, size_t argc, char **argv)
 	shell_print(sh, "monitor/base_link: %s", cfg->monitor_base_link);
 	shell_print(sh, "device/brightness: %d", cfg->device_brightness);
 	shell_print(sh, "device/display_time: %d", cfg->device_display_time);
+	shell_print(sh, "device/refresh_time: %d", cfg->device_refresh_time);
 	shell_print(sh, "advanced/config_timeout: %d", cfg->advanced_config_timeout);
 	shell_print(sh, "advanced/tls_verify: %d", cfg->advanced_tls_verify);
 
@@ -270,6 +283,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_conf,
 							   SHELL_CMD_ARG(display_time, NULL,
 											 "Seconds the departure board stays up. E.g. 30.",
 											 set_display_time, 2, 0),
+							   SHELL_CMD_ARG(refresh_time, NULL,
+											 "Seconds between refreshes without deep sleep. "
+											 "E.g. 60.",
+											 set_refresh_time, 2, 0),
 							   SHELL_SUBCMD_SET_END /* Array terminated. */
 );
 

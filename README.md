@@ -47,6 +47,7 @@ There are several advanced configuration entries that dont need to be set.
 - **Base Link** - Overrides the base link of the provider (basically the front of the string).
 - **Brightness** - Sets the display brightness, 1 to 100 (default 50).
 - **Display Time** - Sets how many seconds the departures stay on screen before the device goes back to sleep, 5 to 300 (default 30).
+- **Refresh Time** - Sets how many seconds an always powered device (e.g. the e-ink board) waits between two refreshes of the board, 10 to 3600 (default 60). A button press refreshes right away. Does nothing on a battery device, which goes to sleep after every update instead.
 - **Config Timeout** - Sets the Amount of time the device stays in the configuration mode before it shuts down automatically to save battery, 10 to 3600 seconds (default 300).
 - **Certificate Check** - Checks that the server certificate comes from Let's Encrypt (1, default). Only switch it off (0) for a base link on a host that uses another certificate authority.
 

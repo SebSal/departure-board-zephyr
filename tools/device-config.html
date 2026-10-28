@@ -240,6 +240,10 @@ const FIELDS = [
   { id: "display_time", cmd: "device display_time", title: "Display time", type: "number",
     adv: true, min: 5, max_val: 300, ph: "30",
     hint: "Seconds the departures stay on screen before the device sleeps." },
+  { id: "refresh_time", cmd: "device refresh_time", title: "Refresh time", type: "number",
+    adv: true, min: 10, max_val: 3600, ph: "60",
+    hint: "Seconds between refreshes on an always powered device such as the e-ink board. Does " +
+          "nothing on a battery device, which sleeps after every update instead." },
   { id: "config_timeout", cmd: "advanced config_timeout", title: "Config timeout", type: "number",
     adv: true, min: 10, max_val: 3600, ph: "300",
     hint: "Seconds the device stays in config mode before sleeping." },
@@ -321,6 +325,7 @@ const DUMP_FIELDS = {
   "monitor/base_link": "base_link",
   "device/brightness": "brightness",
   "device/display_time": "display_time",
+  "device/refresh_time": "refresh_time",
   "advanced/config_timeout": "config_timeout",
   "advanced/tls_verify": "tls_verify",
 };

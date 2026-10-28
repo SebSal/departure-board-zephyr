@@ -43,15 +43,15 @@ config APP_DEEP_SLEEP
 	help
 	  After an update the device powers off until the button wakes it. Boards running on a
 	  battery select this. Without it the device stays awake, keeps the wifi connected and
-	  refreshes the board every APP_IDLE_INTERVAL_SEC.
+	  refreshes the board every device/refresh_time seconds.
 
-config APP_IDLE_INTERVAL_SEC
-	int "Seconds between updates while idling"
-	depends on !APP_DEEP_SLEEP
+config APP_REFRESH_TIME_SEC
+	int "Default seconds between updates while idling"
 	default 60
 	help
-	  How long the device idles after an update before refreshing the board again. A button
-	  press refreshes it right away.
+	  Sets device/refresh_time when it has never been configured: how long the device idles
+	  after an update before refreshing the board again. A button press refreshes it right
+	  away. Ignored with APP_DEEP_SLEEP, the setting exists on every board regardless.
 
 config APP_WATCHDOG_TIMEOUT_MARGIN_SEC
 	int "Watchdog margin on top of the longest awake time in seconds"

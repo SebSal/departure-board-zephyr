@@ -29,6 +29,8 @@
 #define CFG_KEY_DEVICE_BRIGHTNESS    CFG_TREE_DEVICE "/" CFG_NAME_DEVICE_BRIGHTNESS
 #define CFG_NAME_DEVICE_DISPLAY_TIME "display_time"
 #define CFG_KEY_DEVICE_DISPLAY_TIME  CFG_TREE_DEVICE "/" CFG_NAME_DEVICE_DISPLAY_TIME
+#define CFG_NAME_DEVICE_REFRESH_TIME "refresh_time"
+#define CFG_KEY_DEVICE_REFRESH_TIME  CFG_TREE_DEVICE "/" CFG_NAME_DEVICE_REFRESH_TIME
 
 #define CFG_TREE_ADVANCED                "advanced"
 #define CFG_NAME_ADVANCED_CONFIG_TIMEOUT "config_timeout"
@@ -51,6 +53,7 @@ struct device_config {
 
 	int32_t device_brightness;
 	int32_t device_display_time;
+	int32_t device_refresh_time;
 
 	int32_t advanced_config_timeout;
 	int32_t advanced_enter_config;
@@ -64,6 +67,8 @@ struct device_config {
 #define CFG_CONFIG_TIMEOUT_MAX 3600
 #define CFG_DISPLAY_TIME_MIN   5
 #define CFG_DISPLAY_TIME_MAX   300
+#define CFG_REFRESH_TIME_MIN   10
+#define CFG_REFRESH_TIME_MAX   3600
 
 /* Each setter persists one key and updates the copy returned by config_get(), so a dump shows what
  * was saved. The running state machine keeps the configuration it booted with; changes take effect
@@ -81,6 +86,7 @@ int config_set_monitor_base_link(const char *link);
 
 int config_set_device_brightness(int32_t brightness);
 int config_set_device_display_time(int32_t seconds);
+int config_set_device_refresh_time(int32_t seconds);
 
 int config_set_advanced_config_timeout(int32_t value);
 int config_set_advanced_enter_config(int32_t value);

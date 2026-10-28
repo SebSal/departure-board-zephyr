@@ -345,7 +345,9 @@ static void idle_entry(void *o)
 #else
 	/* Watchdog needs to be fed in case we don't enter deep sleep. */
 	hw_watchdog_feed();
-	k_timer_start(&state_timer, K_SECONDS(CONFIG_APP_IDLE_INTERVAL_SEC), K_NO_WAIT);
+	struct s_object *s = (struct s_object *)o;
+
+	k_timer_start(&state_timer, K_SECONDS(s->config.device_refresh_time), K_NO_WAIT);
 #endif
 }
 
@@ -407,7 +409,7 @@ int main(void)
 	int32_t update_sec =
 		FETCH_MAX_SEC + MAX(s_obj.config.device_display_time, CONFIG_APP_ERROR_DISPLAY_TIME_SEC);
 #else
-	int32_t update_sec = FETCH_MAX_SEC + CONFIG_APP_IDLE_INTERVAL_SEC;
+	int32_t update_sec = FETCH_MAX_SEC + s_obj.config.device_refresh_time;
 #endif
 	int32_t config_sec = CONFIG_APP_BUTTON_HOLD_SEC + s_obj.config.advanced_config_timeout;
 
