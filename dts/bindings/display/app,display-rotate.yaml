@@ -22,3 +22,19 @@ properties:
     type: phandle
     required: true
     description: The panel this node rotates.
+
+  full-refresh-interval:
+    type: int
+    default: 60
+    description: |
+      How many refreshes on the panel's partial profile to allow before one is done on its
+      full profile instead.
+
+      A fast partial waveform moves only the pixels that changed, which is the point of it,
+      but it also never resets the particle distribution the way a full refresh does.
+      Ghosting accumulates until something clears it, and this is what clears it. Counted in
+      refreshes, not in application cycles: a cycle that redraws the screen more than once
+      spends more than one.
+
+      Ignored when the panel has no partial child node, since every refresh is a full one
+      already. 0 disables the periodic clear entirely.

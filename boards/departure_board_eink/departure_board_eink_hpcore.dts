@@ -29,6 +29,15 @@
 			busy-gpios = <&gpio0 19 GPIO_ACTIVE_LOW>;
 			width = <240>;
 			height = <416>;
+
+			full {
+				ccset = <0x00>;
+			};
+
+			partial {
+				ccset = <0x02>;
+				tsset = <0x6E>;
+			};
 		};
 	};
 
@@ -40,6 +49,8 @@
 		display = <&epd>;
 		width = <416>;
 		height = <240>;
+
+		full-refresh-interval = <60>;
 	};
 
 	gpio_keys {

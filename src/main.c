@@ -102,6 +102,8 @@ static void monitor_data_clear(void)
 		for (int l = 0; l < DEPARTURE_LINE_COUNT; l++) {
 			monitor_data.departures[m].lines[l] = DEPARTURE_LINE_EMPTY;
 		}
+
+		monitor_data.departures[m].updated[0] = '\0';
 	}
 }
 

@@ -9,3 +9,13 @@ CONFIG_LV_COLOR_DEPTH_1=y
 CONFIG_LV_FONT_MONTSERRAT_16=y
 CONFIG_LV_FONT_MONTSERRAT_32=y
 CONFIG_LV_FONT_MONTSERRAT_40=y
+
+# Render the whole frame in one flush. Chunked rendering makes LVGL blank the panel around the
+# flush and refresh from blanking_off instead, and uc81xx copies the new image into its old image
+# buffer either way, so by the time that refresh runs the two are identical and the controller
+# sees no change at all. Harmless with the panel's default waveform, which drives every pixel
+# regardless, but it leaves the fast waveform with nothing to do. Flushing in one call keeps the
+# refresh inside uc81xx_write, where the old image is still the previous frame. It also keeps the
+# panel on its partial profile: uc81xx switches to the full one on every blanking_on.
+CONFIG_LV_Z_DIRECT_RENDERING=y
+CONFIG_LV_Z_VDB_SIZE=100

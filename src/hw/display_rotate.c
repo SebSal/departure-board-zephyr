@@ -28,6 +28,16 @@ struct display_rotate_config {
 	uint16_t height;
 	uint8_t *frame;
 	size_t frame_size;
+
+	/* Partial refreshes between two full ones, 0 when the panel has no partial profile or the
+	 * periodic clear is off.
+	 */
+	uint32_t full_refresh_interval;
+};
+
+struct display_rotate_data {
+	/* Refreshes on the partial profile since the last one on the full profile. */
+	uint32_t partial_refreshes;
 };
 
 /* Panel geometry is the rotated geometry turned back around. */
@@ -95,7 +105,31 @@ static int display_rotate_write(const struct device *dev, uint16_t x, uint16_t y
 		.frame_incomplete = false,
 	};
 
-	return display_write(cfg->panel, 0, 0, &panel_desc, cfg->frame);
+	/* The panel's partial profile only moves what changed, so it never resets the particle
+	 * distribution and ghosting builds up behind it. Every so often one refresh goes through
+	 * the full profile instead, which drives every pixel and clears that. uc81xx refreshes on
+	 * the partial profile for a write while not blanked, and on the full one from blanking_off
+	 * after blanking_on, so the clear is the frame written between the two.
+	 */
+	struct display_rotate_data *data = dev->data;
+
+	if (cfg->full_refresh_interval == 0 || data->partial_refreshes < cfg->full_refresh_interval) {
+		data->partial_refreshes++;
+		return display_write(cfg->panel, 0, 0, &panel_desc, cfg->frame);
+	}
+
+	data->partial_refreshes = 0;
+
+	int ret = display_blanking_on(cfg->panel);
+
+	if (ret == 0) {
+		ret = display_write(cfg->panel, 0, 0, &panel_desc, cfg->frame);
+	}
+
+	/* Even after a failed write, so the next one is not stuck on a blanked panel. */
+	int ret_off = display_blanking_off(cfg->panel);
+
+	return ret != 0 ? ret : ret_off;
 }
 
 static void display_rotate_get_capabilities(const struct device *dev,
@@ -127,6 +161,10 @@ static int display_rotate_blanking_off(const struct device *dev)
 {
 	const struct display_rotate_config *cfg = dev->config;
 
+	/* A full refresh, since uc81xx starts out blanked on its full profile. An e-ink panel keeps
+	 * its image across a reset while the driver comes up assuming a white one, and only a full
+	 * refresh reconciles the two. This runs once, from main(), before anything is drawn.
+	 */
 	return display_blanking_off(cfg->panel);
 }
 
@@ -139,6 +177,9 @@ static DEVICE_API(display, display_rotate_api) = {
 };
 
 #define PANEL_NODE(inst) DT_INST_PHANDLE(inst, display)
+
+/* Without a partial profile every refresh is a full one, so there is nothing to clear. */
+#define PANEL_HAS_PARTIAL(inst) DT_NODE_EXISTS(DT_CHILD(PANEL_NODE(inst), partial))
 
 /* The node's width and height are what LVGL sizes its buffers from, so they have to match the
  * panel's turned around. The panel's width becomes this node's height, so the panel must also be
@@ -159,9 +200,14 @@ static DEVICE_API(display, display_rotate_api) = {
 		.height = DT_INST_PROP(inst, height),                                                      \
 		.frame = display_rotate_frame_##inst,                                                      \
 		.frame_size = sizeof(display_rotate_frame_##inst),                                         \
+		.full_refresh_interval =                                                                   \
+			PANEL_HAS_PARTIAL(inst) ? DT_INST_PROP(inst, full_refresh_interval) : 0,               \
 	};                                                                                             \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(inst, NULL, NULL, NULL, &display_rotate_config_##inst, POST_KERNEL,      \
+	static struct display_rotate_data display_rotate_data_##inst;                                  \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(inst, NULL, NULL, &display_rotate_data_##inst,                           \
+						  &display_rotate_config_##inst, POST_KERNEL,                              \
 						  CONFIG_DISPLAY_INIT_PRIORITY, &display_rotate_api);
 
 DT_INST_FOREACH_STATUS_OKAY(DISPLAY_ROTATE_DEFINE)
