@@ -65,6 +65,13 @@ NET_MGMT_REGISTER_EVENT_HANDLER(wifi_l3_handler, NET_EVENT_IPV4_ADDR_ADD, wifi_e
 
 /* ---------------------------------------- Connection ------------------------------------------ */
 
+bool wifi_is_connected(void)
+{
+	struct net_if *iface = net_if_get_default();
+
+	return net_if_is_up(iface) && net_if_ipv4_get_global_addr(iface, NET_ADDR_PREFERRED) != NULL;
+}
+
 int wifi_connect(const char *ssid, const char *psk)
 {
 	struct net_if *iface = net_if_get_default();
@@ -83,7 +90,15 @@ int wifi_connect(const char *ssid, const char *psk)
 
 	int ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, iface, &params, sizeof(params));
 
-	if (ret) {
+	if (ret == -EALREADY) {
+		/* The driver is reconnecting after a drop, wait for it like for our own request. The
+		 * lease may have arrived just before the semaphore was reset.
+		 */
+		LOG_INF("WiFi reconnect already in progress");
+		if (wifi_is_connected()) {
+			return 0;
+		}
+	} else if (ret) {
 		LOG_ERR("WiFi connect request failed: %d", ret);
 		return ret;
 	}

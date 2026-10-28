@@ -38,6 +38,21 @@ config APP_BATTERY_LOW_CUTOFF_MV
 	  Below this measured voltage the device shows a warning and goes straight back to sleep
 	  rather than bringing up the radio.
 
+config APP_DEEP_SLEEP
+	bool "Deep sleep between updates"
+	help
+	  After an update the device powers off until the button wakes it. Boards running on a
+	  battery select this. Without it the device stays awake, keeps the wifi connected and
+	  refreshes the board every APP_IDLE_INTERVAL_SEC.
+
+config APP_IDLE_INTERVAL_SEC
+	int "Seconds between updates while idling"
+	depends on !APP_DEEP_SLEEP
+	default 60
+	help
+	  How long the device idles after an update before refreshing the board again. A button
+	  press refreshes it right away.
+
 config APP_WATCHDOG_TIMEOUT_MARGIN_SEC
 	int "Watchdog margin on top of the longest awake time in seconds"
 	default 10

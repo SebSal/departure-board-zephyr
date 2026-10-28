@@ -16,6 +16,7 @@
 #include "ui.h"
 
 #include <lvgl.h>
+#include <net/http_client.h>
 
 /* Supplied by the build as the output of "git describe". */
 #ifndef APP_GIT_VERSION
@@ -322,15 +323,47 @@ void ui_update(const struct monitor_data *data, int32_t battery_percent)
 	ui_draw();
 }
 
-/* Nothing is drawn for the boot steps. Each one would cost a full panel refresh, which on e-ink
- * takes long enough that the step has moved on before it can be read. The panel holds whatever it
- * last showed until the departures are ready.
+/* True once a step has reported back with an error. */
+static bool step_failed(int err)
+{
+	return err != UI_STEP_PENDING && err != 0;
+}
+
+/* Nothing is drawn for the steps while they run. Each one would cost a full panel refresh, which
+ * on e-ink takes long enough that the step has moved on before it can be read, and with the wifi
+ * kept up they mostly finish at once. The panel holds the last board until the next one is ready.
+ * Only a failed step is drawn, replacing the board so that no stale departures stay up.
  */
 void ui_progress(int32_t battery_voltage, int err_wifi, int err_update)
 {
+	const char *step;
+	int err;
+	char buf[48];
+
 	LV_UNUSED(battery_voltage);
-	LV_UNUSED(err_wifi);
-	LV_UNUSED(err_update);
+
+	if (step_failed(err_wifi)) {
+		step = "WIFI";
+		err = err_wifi;
+	} else if (step_failed(err_update)) {
+		step = "UPDATE";
+		err = err_update;
+	} else {
+		return;
+	}
+
+	if (err == HTTP_CERT_INVALID) {
+		lv_snprintf(buf, sizeof(buf), "%s ERROR: certificate", step);
+	} else {
+		lv_snprintf(buf, sizeof(buf), "%s ERROR: %d", step, err);
+	}
+
+	lv_obj_t *scr = screen_reset();
+
+	add_wrapped_label(scr, buf, &lv_font_montserrat_20, 0);
+
+	add_version(scr);
+	ui_draw();
 }
 
 void ui_configuration(void)

@@ -23,8 +23,11 @@ int hw_power_up(void);
 /* True while the user is holding the button down. */
 bool hw_button_is_pressed(void);
 
-/* Arms the watchdog once for the whole wake, it is never fed. */
+/* Arms the watchdog once for the whole wake, or for one refresh cycle without deep sleep. */
 int hw_watchdog_start(int32_t awake_budget_sec);
+
+/* Feeds the watchdog. Only used without deep sleep, once per refresh cycle. */
+void hw_watchdog_feed(void);
 
 /* Stops the watchdog. */
 void hw_watchdog_stop(void);

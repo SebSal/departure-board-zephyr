@@ -4,6 +4,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/smf.h>
+#include <zephyr/sys/reboot.h>
 #include <zephyr/sys/util.h>
 
 #include "departure_types.h"
@@ -38,7 +39,7 @@ enum monitor_state {
 	STATE_CONFIG,
 	STATE_APP,
 	STATE_LOW_BATTERY,
-	STATE_SLEEP
+	STATE_IDLE
 };
 
 struct s_object {
@@ -198,11 +199,15 @@ static enum smf_state_result config_run(void *o)
 	struct s_object *s = (struct s_object *)o;
 
 	/* Change states on Button Press Event. */
-	if (s->events & EVENT_BTN_PRESS_SHORT) {
+	if (s->events & (EVENT_BTN_PRESS_SHORT | EVENT_TIMER_EXPIRED)) {
 		k_timer_stop(&state_timer);
-		smf_set_state(SMF_CTX(s), &monitor_states[STATE_SLEEP]);
-	} else if (s->events & EVENT_TIMER_EXPIRED) {
-		smf_set_state(SMF_CTX(s), &monitor_states[STATE_SLEEP]);
+		if (IS_ENABLED(CONFIG_APP_DEEP_SLEEP)) {
+			smf_set_state(SMF_CTX(s), &monitor_states[STATE_IDLE]);
+		} else {
+			/* Settings only apply at boot, so reboot instead of idling with the old ones. */
+			LOG_INF("Leaving config mode, rebooting.");
+			sys_reboot(SYS_REBOOT_COLD);
+		}
 	}
 	return SMF_EVENT_HANDLED;
 }
@@ -218,6 +223,9 @@ static void app_entry(void *o)
 											   s->config.monitor_b_label};
 	const char *const ids[MONITOR_COUNT] = {s->config.monitor_a_id, s->config.monitor_b_id};
 
+	/* How long the result stays up with deep sleep. Errors show for the shorter time. */
+	int32_t display_sec = CONFIG_APP_ERROR_DISPLAY_TIME_SEC;
+
 	/* Set the labels. */
 	monitor_data_clear();
 	for (int m = 0; m < MONITOR_COUNT; m++) {
@@ -228,15 +236,21 @@ static void app_entry(void *o)
 	/* Run status display. */
 	ui_progress(s->battery_voltage, UI_STEP_PENDING, UI_STEP_PENDING);
 
-	LOG_INF("Connecting to WiFi.");
+	int ret = 0;
 
-	int ret = wifi_connect(s->config.wifi_ssid, s->config.wifi_password);
+	/* Without deep sleep the connection is kept between cycles. */
+	if (wifi_is_connected()) {
+		LOG_INF("WiFi still connected.");
+	} else {
+		LOG_INF("Connecting to WiFi.");
+		ret = wifi_connect(s->config.wifi_ssid, s->config.wifi_password);
+	}
 
 	if (ret) {
 		LOG_ERR("Wifi connection failed: %d", ret);
 		/* wifi_connect() has already stopped the driver's retries. */
 		ui_progress(s->battery_voltage, ret, UI_STEP_PENDING);
-		goto error;
+		goto done;
 	}
 
 	/* Update display. */
@@ -252,28 +266,34 @@ static void app_entry(void *o)
 							   current_time);
 	}
 
-	/* The fetch is over either way, nothing below this needs the radio. */
-	wifi_disconnect();
+	/* The fetch is over either way, nothing below this needs the radio. Without deep sleep the
+	 * connection is kept for the next refresh.
+	 */
+	if (IS_ENABLED(CONFIG_APP_DEEP_SLEEP)) {
+		wifi_disconnect();
+	}
 
 	if (ret) {
 		LOG_ERR("Failed to update monitor data: %d", ret);
 		ui_progress(s->battery_voltage, 0, ret);
-		goto error;
+		goto done;
 	}
 
 	/* Update display with the received data. */
 	ui_update(&monitor_data, hw_battery_percent_from_mv(s->battery_voltage));
+	display_sec = s->config.device_display_time;
 
+done:
 	/* Drop button and timer events posted while loading. */
 	k_event_clear(&s->smf_event, EVENT_ALL);
 
-	/* Display the updated data for the specified duration. */
-	k_timer_start(&state_timer, K_SECONDS(s->config.device_display_time), K_NO_WAIT);
-	return;
-
-error:
-	k_event_clear(&s->smf_event, EVENT_ALL);
-	k_timer_start(&state_timer, K_SECONDS(CONFIG_APP_ERROR_DISPLAY_TIME_SEC), K_NO_WAIT);
+	if (IS_ENABLED(CONFIG_APP_DEEP_SLEEP)) {
+		/* Display the result for the specified duration. */
+		k_timer_start(&state_timer, K_SECONDS(display_sec), K_NO_WAIT);
+	} else {
+		/* Idle right away, the result stays on screen until the next refresh. */
+		smf_set_state(SMF_CTX(s), &monitor_states[STATE_IDLE]);
+	}
 }
 
 static enum smf_state_result app_run(void *o)
@@ -282,9 +302,9 @@ static enum smf_state_result app_run(void *o)
 
 	if (s->events & EVENT_BTN_PRESS_SHORT) {
 		k_timer_stop(&state_timer);
-		smf_set_state(SMF_CTX(s), &monitor_states[STATE_SLEEP]);
+		smf_set_state(SMF_CTX(s), &monitor_states[STATE_IDLE]);
 	} else if (s->events & EVENT_TIMER_EXPIRED) {
-		smf_set_state(SMF_CTX(s), &monitor_states[STATE_SLEEP]);
+		smf_set_state(SMF_CTX(s), &monitor_states[STATE_IDLE]);
 	}
 	return SMF_EVENT_HANDLED;
 }
@@ -308,22 +328,35 @@ static enum smf_state_result low_battery_run(void *o)
 	/* Any button also ends the wake. */
 	if (s->events & (EVENT_TIMER_EXPIRED | EVENT_BTN_PRESS_SHORT | EVENT_BTN_PRESS_LONG)) {
 		k_timer_stop(&state_timer);
-		smf_set_state(SMF_CTX(s), &monitor_states[STATE_SLEEP]);
+		smf_set_state(SMF_CTX(s), &monitor_states[STATE_IDLE]);
 	}
 	return SMF_EVENT_HANDLED;
 }
 
-/* State STATE_SLEEP - Deep sleep. */
-static void sleep_entry(void *o)
+/* State STATE_IDLE - Deep sleep, or wait for the next refresh without it. */
+static void idle_entry(void *o)
 {
-	LOG_INF("STATE_SLEEP");
+	LOG_INF("STATE_IDLE");
 
+#if defined(CONFIG_APP_DEEP_SLEEP)
 	hw_enter_deep_sleep();
+#else
+	/* Watchdog needs to be fed in case we don't enter deep sleep. */
+	hw_watchdog_feed();
+	k_timer_start(&state_timer, K_SECONDS(CONFIG_APP_IDLE_INTERVAL_SEC), K_NO_WAIT);
+#endif
 }
 
-static enum smf_state_result sleep_run(void *o)
+static enum smf_state_result idle_run(void *o)
 {
-	/* Never reached, sleep_entry powers off the device. */
+	/* Only reached without deep sleep, idle_entry powers off the device otherwise. */
+	struct s_object *s = (struct s_object *)o;
+
+	/* Any button refreshes right away. */
+	if (s->events & (EVENT_TIMER_EXPIRED | EVENT_BTN_PRESS_SHORT | EVENT_BTN_PRESS_LONG)) {
+		k_timer_stop(&state_timer);
+		smf_set_state(SMF_CTX(s), &monitor_states[STATE_APP]);
+	}
 	return SMF_EVENT_HANDLED;
 }
 
@@ -334,7 +367,7 @@ static const struct smf_state monitor_states[] = {
 	[STATE_CONFIG] = SMF_CREATE_STATE(config_entry, config_run, NULL, NULL, NULL),
 	[STATE_APP] = SMF_CREATE_STATE(app_entry, app_run, NULL, NULL, NULL),
 	[STATE_LOW_BATTERY] = SMF_CREATE_STATE(low_battery_entry, low_battery_run, NULL, NULL, NULL),
-	[STATE_SLEEP] = SMF_CREATE_STATE(sleep_entry, sleep_run, NULL, NULL, NULL),
+	[STATE_IDLE] = SMF_CREATE_STATE(idle_entry, idle_run, NULL, NULL, NULL),
 };
 
 /* ---------------------------------------- Main loop ------------------------------------------- */
@@ -365,10 +398,15 @@ int main(void)
 
 	s_obj.config = *config_get();
 
-	/* Arm the watchdog once the timeouts are known. Watchdog covers the whole cycle and is not fed.
+	/* Arm the watchdog once the timeouts are known. With deep sleep it covers the whole wake and is
+	 * not fed. Without it the idle state feeds it, so it covers one idle interval plus a refresh.
 	 */
+#if defined(CONFIG_APP_DEEP_SLEEP)
 	int32_t update_sec =
 		FETCH_MAX_SEC + MAX(s_obj.config.device_display_time, CONFIG_APP_ERROR_DISPLAY_TIME_SEC);
+#else
+	int32_t update_sec = FETCH_MAX_SEC + CONFIG_APP_IDLE_INTERVAL_SEC;
+#endif
 	int32_t config_sec = CONFIG_APP_BUTTON_HOLD_SEC + s_obj.config.advanced_config_timeout;
 
 	if (hw_watchdog_start(MAX(update_sec, config_sec))) {

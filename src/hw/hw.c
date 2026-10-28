@@ -26,6 +26,10 @@ LOG_MODULE_REGISTER(app_hw, CONFIG_APP_HW_LOG_LEVEL);
 #define HAS_BACKLIGHT   DT_NODE_EXISTS(DT_ALIAS(ledbacklight))
 #define HAS_BATTERY     DT_NODE_HAS_PROP(DT_PATH(zephyr_user), io_channels)
 
+/* Only deep sleep reaches the low battery path, idling would drain the battery. */
+BUILD_ASSERT(IS_ENABLED(CONFIG_APP_DEEP_SLEEP) || !HAS_BATTERY,
+			 "Boards with a battery must select CONFIG_APP_DEEP_SLEEP");
+
 static const struct gpio_dt_spec btn = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
 
 static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(wdt0));
@@ -186,6 +190,8 @@ void hw_device_failure(const char *device)
 
 /* ---------------------------------------- Watchdog -------------------------------------------- */
 
+static int wdt_channel;
+
 static void watchdog_expired(const struct device *dev, int channel_id)
 {
 	ARG_UNUSED(dev);
@@ -218,8 +224,11 @@ int hw_watchdog_start(int32_t awake_time)
 		LOG_ERR("Failed to install watchdog timeout: %d", ret);
 		return ret;
 	}
+	wdt_channel = ret;
 
-	/* wdt_setup() enables the watchdog and feeds it once, no further feeding happens. */
+	/* wdt_setup() enables the watchdog and feeds it once. Without deep sleep the idle state feeds
+	 * it again before every refresh.
+	 */
 	ret = wdt_setup(wdt, 0);
 	if (ret < 0) {
 		LOG_ERR("Failed to setup watchdog: %d", ret);
@@ -228,6 +237,15 @@ int hw_watchdog_start(int32_t awake_time)
 
 	LOG_INF("Watchdog armed with %d s.", timeout_sec);
 	return 0;
+}
+
+void hw_watchdog_feed(void)
+{
+	int ret = wdt_feed(wdt, wdt_channel);
+
+	if (ret < 0) {
+		LOG_ERR("Failed to feed watchdog: %d", ret);
+	}
 }
 
 void hw_watchdog_stop(void)

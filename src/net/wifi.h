@@ -4,6 +4,11 @@
 /* Longest wifi_connect() waits for association and a DHCP lease. */
 #define WIFI_CONNECT_TIMEOUT_MS 30000
 
+#include <stdbool.h>
+
+/* True while associated and holding an IPv4 address. */
+bool wifi_is_connected(void);
+
 /* Connects to Wi-Fi with the given SSID and PSK. Returns 0, or the error. */
 int wifi_connect(const char *ssid, const char *psk);
 

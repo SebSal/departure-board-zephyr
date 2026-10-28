@@ -1,3 +1,7 @@
 config HEAP_MEM_POOL_ADD_SIZE_BOARD
 	int
 	default 4096
+
+# Runs on a battery, so it has to power off between updates.
+config BOARD_DEPARTURE_BOARD_BAT
+	select APP_DEEP_SLEEP
