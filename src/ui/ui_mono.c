@@ -128,6 +128,10 @@ static lv_obj_t *add_clipped_label(lv_obj_t *parent, const char *text, const lv_
 	lv_obj_set_style_text_font(label, font, 0);
 	lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
 	lv_obj_set_width(label, width);
+	/* Dots only replace text that overflows the height, so pin it to one line to stop a long
+	 * destination from wrapping into the row below.
+	 */
+	lv_obj_set_height(label, lv_font_get_line_height(font));
 	lv_obj_align(label, LV_ALIGN_LEFT_MID, x_ofs, 0);
 
 	return label;
