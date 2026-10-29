@@ -97,21 +97,21 @@ static void parse_line(const char *json, const jsmntok_t *t, int r, int line, in
 	}
 }
 
-/* Turns the timestamp in an event's "departure" object into minutes from current_time. */
-static void parse_departure(const char *json, const jsmntok_t *t, int r, int dep,
-							int64_t current_time, struct departure_line *ls)
+/* Reads the timestamp from an event's "departure" object, or returns -1 if it has none. It is the
+ * live estimate, so a delayed tram carries its delayed time.
+ */
+static int64_t parse_departure(const char *json, const jsmntok_t *t, int r, int dep)
 {
 	int tok = json_object_find(json, t, r, dep, "timestamp");
 
 	if (tok < 0) {
-		return;
+		return -1;
 	}
 
 	char tmp[12];
 
 	json_copy_token(tmp, sizeof(tmp), json, &t[tok]);
-	ls->departure_minutes = time_minutes_until(atoll(tmp), current_time);
-	LOG_DBG("Event departure in %d min", ls->departure_minutes);
+	return atoll(tmp);
 }
 
 /* ---------------------------------------- Parser ---------------------------------------------- */
@@ -150,12 +150,14 @@ static int vrs_parse(char *json, struct departure_data *departure, int64_t curre
 		return -EBADMSG;
 	}
 
-	/* Event e fills row e, so an event that is not an object, or one without a timestamp, leaves
-	 * its row empty.
+	/* The feed keeps a tram listed after its departure time has passed, so rows are filled from
+	 * the events still departing after current_time, in feed order. Anything else is skipped
+	 * without using up a row: an event that is not an object, has no timestamp, or has left.
 	 */
 	int idx = events + 1;
+	int row = 0;
 
-	for (int e = 0; e < t[events].size && e < DEPARTURE_LINE_COUNT && idx < r; e++) {
+	for (int e = 0; e < t[events].size && row < DEPARTURE_LINE_COUNT && idx < r; e++) {
 		int event = idx;
 
 		idx += json_skip_tokens(t, r, idx);
@@ -164,16 +166,24 @@ static int vrs_parse(char *json, struct departure_data *departure, int64_t curre
 			continue;
 		}
 
-		struct departure_line *ls = &departure->lines[e];
-		int line = json_object_find_type(json, t, r, event, "line", JSMN_OBJECT);
 		int dep = json_object_find_type(json, t, r, event, "departure", JSMN_OBJECT);
+		int64_t timestamp = dep >= 0 ? parse_departure(json, t, r, dep) : -1;
+
+		if (timestamp <= current_time) {
+			LOG_DBG("Skipping event %d, departure %lld is not after %lld", e, timestamp,
+					current_time);
+			continue;
+		}
+
+		struct departure_line *ls = &departure->lines[row++];
+		int line = json_object_find_type(json, t, r, event, "line", JSMN_OBJECT);
 
 		if (line >= 0) {
 			parse_line(json, t, r, line, e, ls);
 		}
-		if (dep >= 0) {
-			parse_departure(json, t, r, dep, current_time, ls);
-		}
+
+		ls->departure_minutes = time_minutes_until(timestamp, current_time);
+		LOG_DBG("Event %d departure in %d min", e, ls->departure_minutes);
 	}
 
 	return 0;

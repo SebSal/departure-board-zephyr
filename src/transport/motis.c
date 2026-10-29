@@ -99,11 +99,10 @@ static void shorten_headsign(char *s)
 
 /* Reads the departure time off a stop time's nested "place", which carries the realtime prediction
  * in "departure" and the timetable in "scheduledDeparture". The former is null when no realtime
- * data covers the trip, so fall back rather than drop it. Leaves DEPARTURE_NO_DATA when neither
- * gives a usable time.
+ * data covers the trip, so fall back rather than drop it. Returns -1 when neither gives a usable
+ * time.
  */
-static void parse_place(const char *json, const jsmntok_t *t, int r, int place, int e,
-						int64_t current_time, struct departure_line *line)
+static int64_t parse_place(const char *json, const jsmntok_t *t, int r, int place, int e)
 {
 	int when = json_object_find_type(json, t, r, place, "departure", JSMN_STRING);
 
@@ -111,7 +110,7 @@ static void parse_place(const char *json, const jsmntok_t *t, int r, int place, 
 		when = json_object_find_type(json, t, r, place, "scheduledDeparture", JSMN_STRING);
 	}
 	if (when < 0) {
-		return;
+		return -1;
 	}
 
 	int64_t timestamp;
@@ -120,15 +119,15 @@ static void parse_place(const char *json, const jsmntok_t *t, int r, int place, 
 	if (time_iso8601_to_unix(json_tok_str(json, &t[when]), json_tok_len(&t[when]), &timestamp,
 							 &offset) != 0) {
 		LOG_WRN("Unparsable timestamp for departure %d", e);
-		return;
+		return -1;
 	}
 
-	line->departure_minutes = time_minutes_until(timestamp, current_time);
-	LOG_DBG("Departure in %d min", line->departure_minutes);
+	return timestamp;
 }
 
 /* Reads one stop time into line. Returns false for a trip that should not take a row: one that is
- * cancelled, or one without a usable departure time.
+ * cancelled, one without a usable departure time, or one whose departure is not after
+ * current_time.
  */
 static bool parse_stop_time(const char *json, const jsmntok_t *t, int r, int st, int e,
 							int64_t current_time, struct departure_line *line)
@@ -191,16 +190,25 @@ static bool parse_stop_time(const char *json, const jsmntok_t *t, int r, int st,
 	}
 
 	int place = json_object_find(json, t, r, st, "place");
-
-	if (place >= 0) {
-		parse_place(json, t, r, place, e, current_time, line);
-	}
+	int64_t timestamp = place >= 0 ? parse_place(json, t, r, place, e) : -1;
 
 	/* A trip without a usable time is skipped like a cancelled one. */
-	if (line->departure_minutes == DEPARTURE_NO_DATA) {
+	if (timestamp < 0) {
 		LOG_WRN("No departure time for departure %d, skipping it", e);
 		return false;
 	}
+
+	/* The query starts at the server's now, but a delayed fetch, a clock apart from ours or a
+	 * realtime prediction ahead of the timetable can still hand over a trip that has left.
+	 */
+	if (timestamp <= current_time) {
+		LOG_DBG("Skipping departure %d, departure %lld is not after %lld", e, timestamp,
+				current_time);
+		return false;
+	}
+
+	line->departure_minutes = time_minutes_until(timestamp, current_time);
+	LOG_DBG("Departure in %d min", line->departure_minutes);
 
 	return true;
 }
