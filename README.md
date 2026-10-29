@@ -49,7 +49,7 @@ There are several advanced configuration entries that dont need to be set.
 - **Display Time** - Sets how many seconds the departures stay on screen before the device goes back to sleep, 5 to 300 (default 30).
 - **Refresh Time** - Sets how many seconds an always powered device (e.g. the e-ink board) waits between two refreshes of the board, 10 to 3600 (default 60). A button press refreshes right away. Does nothing on a battery device, which goes to sleep after every update instead.
 - **Config Timeout** - Sets the Amount of time the device stays in the configuration mode before it shuts down automatically to save battery, 10 to 3600 seconds (default 300).
-- **Certificate Check** - Checks that the server certificate comes from Let's Encrypt (1, default). Only switch it off (0) for a base link on a host that uses another certificate authority.
+- **Certificate Check** - Checks that the server certificate comes from Let's Encrypt and is within its validity dates (1, default). Only switch it off (0) for a base link on a host that uses another certificate authority.
 
 ### How to use the configuration website
 The configuration website is based on Webserial to access the plugged in device.
@@ -94,7 +94,7 @@ When a wake cycle fails, the display shows the step that failed and a number.
 | -114, -118 | No route to the host, usually because the WiFi link dropped right after connecting. |
 | **-116** | Timed out: no answer from the time server within two 5 second attempts, the connection to the provider could not be set up in time, or the provider did not answer the request within 5 seconds. |
 | -134 | The configured provider number is neither 0 (VRS) nor 1 (MOTIS). |
-| certificate | The server certificate failed the check: it is not from Let's Encrypt, or does not match the host. See Certificate Check above. |
+| certificate | The server certificate failed the check: it is not from Let's Encrypt, does not match the host, or is expired or not yet valid. See Certificate Check above. |
 
 ## Hardware
 

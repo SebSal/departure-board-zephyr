@@ -1,7 +1,10 @@
 #include "ntp.h"
 
+#include <time.h>
+
 #include <zephyr/logging/log.h>
 #include <zephyr/net/sntp.h>
+#include <zephyr/sys/clock.h>
 
 LOG_MODULE_REGISTER(app_ntp, CONFIG_APP_NTP_LOG_LEVEL);
 
@@ -27,6 +30,21 @@ int ntp_get_time(int64_t *out_seconds)
 
 	if (ret < 0) {
 		LOG_ERR("SNTP failed: %d", ret);
+		return ret;
+	}
+
+	/* mbedTLS checks certificate dates through time(), which reads this clock. It starts at 1970
+	 * on every boot, so a connect without it set would find every certificate not yet valid.
+	 */
+	const struct timespec ts = {
+		.tv_sec = (time_t)sntp.seconds,
+		/* fraction is a binary fraction of a second. */
+		.tv_nsec = (long)(((uint64_t)sntp.fraction * NSEC_PER_SEC) >> 32),
+	};
+
+	ret = sys_clock_settime(SYS_CLOCK_REALTIME, &ts);
+	if (ret < 0) {
+		LOG_ERR("Setting the wall clock failed: %d", ret);
 		return ret;
 	}
 

@@ -75,7 +75,7 @@ static int ca_register(void)
 /* Sets up the peer check on a fresh socket. The check runs in optional mode and is evaluated by
  * cert_check() once connected, because a failed handshake resets the session and with it the
  * verify result, which would leave a certificate failure looking like any other TLS error.
- * TODO: Validity dates are not checked.
+ * Validity dates are checked against the wall clock, which ntp_get_time() has set by then.
  */
 static int cert_setup(int sock, bool verify)
 {
