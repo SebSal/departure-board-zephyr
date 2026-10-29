@@ -182,7 +182,7 @@ static lv_obj_t *add_container(lv_obj_t *parent, int32_t width, int32_t height, 
 	lv_obj_remove_style_all(box);
 	lv_obj_set_size(box, width, height);
 	lv_obj_set_pos(box, x, y);
-	lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_scrollable(box, false);
 
 	return box;
 }

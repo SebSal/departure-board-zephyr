@@ -99,7 +99,7 @@ static lv_obj_t *add_section(lv_obj_t *parent, int32_t scr_width, int32_t sectio
 	lv_obj_set_size(section, scr_width, section_h);
 	lv_obj_set_pos(section, 0, start_line);
 	lv_obj_add_style(section, style, 0);
-	lv_obj_clear_flag(section, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_scrollable(section, false);
 
 	return section;
 }
@@ -193,7 +193,7 @@ static void add_battery(lv_obj_t *parent, int32_t percent, lv_align_t align, int
 	lv_obj_set_style_border_width(body, 1, 0);
 	lv_obj_set_style_radius(body, 2, 0);
 	lv_obj_set_style_pad_all(body, 1, 0);
-	lv_obj_clear_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_scrollable(body, false);
 	lv_obj_align(body, align, x_ofs, y_ofs);
 
 	/* Terminal nub, hung off the right hand edge of the body. */
@@ -205,7 +205,7 @@ static void add_battery(lv_obj_t *parent, int32_t percent, lv_align_t align, int
 	lv_obj_set_style_border_width(nub, 0, 0);
 	lv_obj_set_style_radius(nub, 0, 0);
 	lv_obj_set_style_pad_all(nub, 0, 0);
-	lv_obj_clear_flag(nub, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_scrollable(nub, false);
 	lv_obj_align_to(nub, body, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
 
 	lv_obj_t *fill = lv_obj_create(body);
@@ -218,7 +218,7 @@ static void add_battery(lv_obj_t *parent, int32_t percent, lv_align_t align, int
 	lv_obj_set_style_border_width(fill, 0, 0);
 	lv_obj_set_style_radius(fill, 0, 0);
 	lv_obj_set_style_pad_all(fill, 0, 0);
-	lv_obj_clear_flag(fill, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_scrollable(fill, false);
 	lv_obj_align(fill, LV_ALIGN_LEFT_MID, 0, 0);
 }
 
@@ -235,7 +235,7 @@ static void add_line(int32_t width, int32_t pos_y)
 	lv_obj_set_style_border_width(line, 0, 0);
 	lv_obj_set_style_radius(line, 0, 0);
 	lv_obj_set_style_pad_all(line, 0, 0);
-	lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_scrollable(line, false);
 	lv_obj_set_pos(line, 0, pos_y);
 }
 

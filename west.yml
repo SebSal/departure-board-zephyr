@@ -6,7 +6,7 @@ manifest:
 
   projects:
     - name: zephyr
-      revision: 08e13d28c3aed050b9742ea28d5d573f260c13a7
+      revision: v4.5.0
       url: https://github.com/zephyrproject-rtos/zephyr
       submodules: true
       import:

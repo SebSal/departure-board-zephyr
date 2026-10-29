@@ -148,16 +148,9 @@ struct body_sink {
 	uint16_t status;
 };
 
-/* The sink the in-flight request appends to. Every request already serialises through
- * the one static recv_buf, so a single slot is enough - and it keeps the parser callback
- * from having to reach into the client's internal request struct to find its user data.
- * The response callback has no such trouble and takes the sink as its user data.
- */
-static struct body_sink *active_sink;
-
 static void sink_append(struct body_sink *sink, const char *data, size_t len)
 {
-	if (!sink || len == 0) {
+	if (len == 0) {
 		return;
 	}
 
@@ -172,33 +165,18 @@ static void sink_append(struct body_sink *sink, const char *data, size_t len)
 	sink->buf[sink->used] = '\0';
 }
 
-/* Body fragments are collected here rather than from the http_response passed to
- * response_cb, because the two are called at different rates. The parser runs on_body
- * once per chunk, while the response callback runs once per receive. A receive that
- * straddles a chunk boundary therefore sees body_frag_start still pointing at the first
- * fragment - it is only assigned while NULL - and body_frag_len already overwritten with
- * the length of the last one. The span between them covers the "\r\n<size>\r\n" framing
- * and drops whatever else the receive held.
+/* Runs once per body fragment, so a receive holding several chunks of a chunked response calls
+ * it once per chunk, each with only that chunk's payload. A receive without body has no fragment.
  */
-static int on_body_frag(struct http_parser *parser, const char *at, size_t length)
-{
-	ARG_UNUSED(parser);
-
-	sink_append(active_sink, at, length);
-	return 0;
-}
-
-static const struct http_parser_settings body_settings = {
-	.on_body = on_body_frag,
-};
-
 static int response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
 	struct body_sink *sink = user_data;
 
-	/* Runs once per receive, so this is overwritten with the same value each time. */
-	if (sink) {
-		sink->status = rsp->http_status_code;
+	/* Overwritten with the same value on every call. */
+	sink->status = rsp->http_status_code;
+
+	if (rsp->body_frag_start) {
+		sink_append(sink, (const char *)rsp->body_frag_start, rsp->body_frag_len);
 	}
 
 	if (final_data == HTTP_DATA_FINAL) {
@@ -292,15 +270,12 @@ int http_get(int sock, const char *host, const char *path, char *buf, size_t buf
 		.host = host,
 		.protocol = "HTTP/1.1",
 		.response = response_cb,
-		.http_cb = &body_settings,
 		.recv_buf = recv_buf,
 		.recv_buf_len = sizeof(recv_buf),
 	};
 
-	active_sink = &sink;
 	int ret = http_client_req(sock, &req, HTTP_TIMEOUT_MS, &sink);
 
-	active_sink = NULL;
 	if (ret < 0) {
 		LOG_ERR("HTTP GET failed: %d", ret);
 		return ret;

@@ -1,6 +1,6 @@
 /dts-v1/;
 
-#include <espressif/esp32c6/esp32c6_wroom_n4.dtsi>
+#include <espressif/esp32c6/esp32c6.dtsi>
 #include "beetle_esp32c6_hpcore-pinctrl.dtsi"
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/led/led.h>
@@ -32,6 +32,12 @@
 			label = "LED";
 		};
 	};
+};
+
+/* The ESP32-C6-WROOM-1U-N4 module on the Beetle carries 4 MB of flash. */
+&flash0 {
+	reg = <0x0 DT_SIZE_M(4)>;
+	ranges = <0x0 0x0 DT_SIZE_M(4)>;
 };
 
 &uart0 {
