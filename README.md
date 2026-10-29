@@ -1,4 +1,4 @@
-# Public Transportation Monitor
+# Departure Board
 
 This is a little project for a public transportation departure board.
 It was mostly designed around the KVB/VRS API in Cologne but it also includes a
@@ -24,7 +24,11 @@ should last about 3 months on one charge when used twice daily.
 
 The other variant is a more expensive E-Ink display version that is constantly
 powered and holds the current departures. Intended as your own departure board
-at home. (WIP)
+at home.
+
+<p align="center">
+  <img src="doc/monitor_eink.jpeg" alt="EInk monitor showing the next departures" width="60%">
+</p>
 
 ## Configuration
 
@@ -108,6 +112,10 @@ The software also runs two MOSFET circuits on a custom shield to power down the 
 voltage divider on the shield during sleep.
 
 <p align="center">
+  <img src="doc/bat_circuit.png" alt="Circuit of the battery variant: battery with a current meter header, switched battery sense divider, switched display supply, LCD connector and button" width="90%">
+</p>
+
+<p align="center">
   <img src="doc/lcd_front.jpeg" alt="2.4 inch SPI LCD module, front" width="47.3%">
   <img src="doc/lcd_back.jpeg" alt="2.4 inch SPI LCD module, back" width="42.7%">
 </p>
@@ -118,7 +126,18 @@ voltage divider on the shield during sleep.
 </p>
 
 (Notes: The DFR1117 already includes a voltage divider on the board but the
-readings seem off. TODO).
+readings seem off. Also shutting down the display via commands did not result
+in the expected power savings. Thus the first version has its own display
+rails that can be turned off and a external voltage divider. TODO: investigate).
+
+The e-ink device uses the same module with a 3.7 inch 240 x 416 e-paper display with a UC8253
+controller, powered over USB-C. It needs no shield, the display and the button are wired directly.
+The button connects GPIO 4 to GND, with an external 10 kΩ pull-up from GPIO 4 to 3V3, so a press
+reads as low.
+
+<p align="center">
+  <img src="doc/eink_wiring.png" alt="Wiring of the e-ink variant: Beetle ESP32-C6 pins labelled with the e-paper module and button connections" width="40%">
+</p>
 
 # Development
 
@@ -163,8 +182,8 @@ west blobs fetch hal_espressif
 Run these in every new shell before building.
 
 ```sh
-source ~/Workspace/zephyrproject/.venv/bin/activate
-source ~/Workspace/zephyrproject/zephyr/zephyr-env.sh
+source ~/workspace/zephyrproject/.venv/bin/activate
+source ~/workspace/zephyrproject/zephyr/zephyr-env.sh
 ```
 
 ## Debug
