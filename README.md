@@ -8,11 +8,10 @@ be added.
 Because of display size it is limited to the next two departures on two
 endpoints that can be configured.
 
-For VRS the configuration is easy, just create your own monitor
-[here](https://www.vrs.de/fahrplanauskunft/abfahrtsmonitor) and add the monitor
-id to the device configuration.
-For transitous there is a [helper site](tools/motis-stops.html) in the tools
-folder that can create an API call for you to add to the device.
+For VRS you create your own monitor on the VRS website and add its id to the
+device. For transitous there is a
+[helper site](https://sebsal.github.io/departure-board-zephyr/tools/motis-stops.html)
+that finds the station ID for you. See [Finding the station IDs](#finding-the-station-ids).
 
 Planned are two variants, one cheap battery powered device with an LCD that
 shows the current departures after a button press. With a 500 mAh battery it
@@ -38,7 +37,7 @@ The device has a configuration mode that can be entered by holding the device bu
 The device will also enter configuration mode automatically if nothing is configured or it detects an incorrect configuration.
 
 ### Configuration entries
-The device has 7 mandatory configuration entries. To set them either use a serial console or the helper website found [here](tools/device-config.html) (later hosted page).
+The device has 7 mandatory configuration entries. To set them either use a serial console or the [configuration website](https://sebsal.github.io/departure-board-zephyr/tools/device-config.html).
 
 - **WiFi SSID/Password** - The wifi credentials used to download the monitor information.
 - **Station A/B Label** - The label shown the blue bar, to remind what is configured there.
@@ -54,6 +53,37 @@ There are several advanced configuration entries that dont need to be set.
 - **Refresh Time** - Sets how many seconds an always powered device (e.g. the e-ink board) waits between two refreshes of the board, 10 to 3600 (default 60). A button press refreshes right away. Does nothing on a battery device, which goes to sleep after every update instead.
 - **Config Timeout** - Sets the Amount of time the device stays in the configuration mode before it shuts down automatically to save battery, 10 to 3600 seconds (default 300).
 - **Certificate Check** - Checks that the server certificate comes from Let's Encrypt and is within its validity dates (1, default). Only switch it off (0) for a base link on a host that uses another certificate authority.
+
+### Finding the station IDs
+
+#### VRS / KVB
+
+1. Go to the [VRS Abfahrtsmonitor](https://www.vrs.de/fahrplanauskunft/abfahrtsmonitor) and create a configuration for your stop.
+   Pick the lines/directions you want and limit the number of departures to around 4 (see above).
+   You can also set how many minutes it takes you to walk to the stop, then departures you can't reach anymore are filtered out if you want.
+2. When you are done, the page shows the link to your monitor under **Anzeige**.
+   The monitor ID is the last part of that link, the 32 character code of letters and numbers at the end, e.g. `abcd1234abcd1234abcd1234abcd1234`.
+3. Enter that code as the station ID and set the provider to 0 (VRS).
+
+The device shows two separate stations (A and B), and each one is its own VRS configuration.
+So if you want to show two stations or directions, go through the steps above twice and use one ID for station A and the other for station B.
+
+#### MOTIS / Transitous
+
+[Transitous](https://transitous.org) collects the public timetables from all over Europe, so this works for many cities outside the VRS area as well.
+Use the [MOTIS stop picker](https://sebsal.github.io/departure-board-zephyr/tools/motis-stops.html) to find the ID:
+
+1. Search for your station and pick it from the list.
+2. The page lists every platform of that station with the lines and departures from it.
+   A platform usually serves only one direction, so pick the platform for the direction you want and press **use this**.
+   If a platform is marked with **2 directions**, the monitor will show departures going both ways (e.g. trains that end there and turn around).
+3. The page then checks the response the device will get for that platform: it should return at least 2 departures and fit into the device memory.
+   It shows the station ID (something like `de-VBB_de:11000:900100003::3`) to enter as the station ID with the provider set to 1 (MOTIS).
+
+MOTIS has no filter for single lines, so a platform always shows all lines that depart from it.
+Same as for VRS, run through it twice for station A and B.
+
+The default base link already asks for 4 departures. If you change the departures number on the page, also set the **Base Link** shown there.
 
 ### How to use the configuration website
 The configuration website is based on Webserial to access the plugged in device.
